@@ -13,9 +13,6 @@ struct AI_Behavioral_Interview_CoachApp: App {
     }
 }
 
-// Temporary scaffold placeholders. Later feature tasks replace these with real app models and views.
-private struct MockCoachService {}
-
 @MainActor
 @Observable
 private final class AppModel {
