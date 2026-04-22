@@ -1,0 +1,198 @@
+openapi: 3.1.0
+info:
+  title: AI Behavioral Interview Coach API
+  version: 1.1.0
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 8
+  schemas:
+    ApiError:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+    ApiResponse:
+      type: object
+      required:
+        - request_id
+        - data
+        - error
+      properties:
+        request_id:
+          type: string
+        data:
+          description: Endpoint-specific payload, or null on failure.
+        error:
+          oneOf:
+            - $ref: "#/components/schemas/ApiError"
+            - type: "null"
+    DeleteResumeRequest:
+      type: object
+      required:
+        - delete_mode
+      properties:
+        delete_mode:
+          type: string
+          enum:
+            - resume_only_redacted_history
+            - resume_and_linked_training
+paths:
+  /app-users/bootstrap:
+    post:
+      security: []
+      summary: Create or restore anonymous user
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+  /home:
+    get:
+      summary: Get home screen aggregate context
+  /resumes:
+    post:
+      summary: Upload active resume
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+  /resumes/{resume_id}:
+    get:
+      summary: Get resume parsing status and summary
+      parameters:
+        - name: resume_id
+          in: path
+          required: true
+          schema:
+            type: string
+  /resumes/active:
+    get:
+      summary: Get active resume
+    delete:
+      summary: Delete active resume
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeleteResumeRequest"
+  /training-sessions:
+    post:
+      summary: Create training session and reserve one credit
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+  /training-sessions/{session_id}:
+    get:
+      summary: Get current or historical session detail, including question, follow-up, feedback, and redo review when available
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+    delete:
+      summary: Delete visible training content
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/IdempotencyKey"
+  /training-sessions/history:
+    get:
+      summary: Get recent training history summaries
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+  /training-sessions/{session_id}/first-answer:
+    post:
+      summary: Submit first answer audio
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/IdempotencyKey"
+  /training-sessions/{session_id}/follow-up-answer:
+    post:
+      summary: Submit follow-up answer audio
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/IdempotencyKey"
+  /training-sessions/{session_id}/redo:
+    post:
+      summary: Submit redo answer and start redo evaluation
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/IdempotencyKey"
+  /training-sessions/{session_id}/skip-redo:
+    post:
+      summary: Skip redo and complete session
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/IdempotencyKey"
+  /training-sessions/{session_id}/abandon:
+    post:
+      summary: Abandon session before feedback and release reserved credit when eligible
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/IdempotencyKey"
+  /billing/entitlement:
+    get:
+      summary: Get usage balance and purchasable products
+  /billing/apple/verify:
+    post:
+      summary: Verify Apple IAP transaction and grant credits
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+  /billing/apple/restore:
+    post:
+      summary: Restore Apple IAP transactions
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+  /app-users/me/data:
+    delete:
+      summary: Delete current anonymous user's training and resume data
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"

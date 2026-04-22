@@ -1,0 +1,761 @@
+{
+  "version": "2.11",
+  "children": [
+    {
+      "type": "frame",
+      "id": "dp8Oj",
+      "x": 0,
+      "y": 0,
+      "name": "IOS-SCR-00 Launch / Bootstrap",
+      "clip": true,
+      "width": 393,
+      "height": 852,
+      "fill": "#000000",
+      "cornerRadius": 36,
+      "layout": "none",
+      "children": [
+        {
+          "type": "script",
+          "id": "kD3zC",
+          "x": 0,
+          "y": 0,
+          "name": "script00",
+          "width": 393,
+          "height": 852,
+          "scriptUri": "ai_bic_original_renderer.js",
+          "inputs": {
+            "screen": "launch"
+          }
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "Bjhb4",
+      "x": 445,
+      "y": 0,
+      "name": "IOS-SCR-01 Home / No Resume",
+      "clip": true,
+      "width": 393,
+      "height": 852,
+      "fill": "#F5F5F7",
+      "cornerRadius": 36,
+      "layout": "none",
+      "children": [
+        {
+          "type": "script",
+          "id": "aEHnQ",
+          "x": 0,
+          "y": 0,
+          "name": "script01a",
+          "width": 393,
+          "height": 852,
+          "scriptUri": "ai_bic_original_renderer.js",
+          "inputs": {
+            "screen": "home_no_resume"
+          }
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "j5Zda",
+      "x": 890,
+      "y": 0,
+      "name": "IOS-SCR-01 Home / Ready",
+      "clip": true,
+      "width": 393,
+      "height": 852,
+      "fill": "#F5F5F7",
+      "cornerRadius": 36,
+      "layout": "none",
+      "children": [
+        {
+          "type": "script",
+          "id": "5cBJd",
+          "x": 0,
+          "y": 0,
+          "name": "script01b",
+          "width": 393,
+          "height": 852,
+          "scriptUri": "ai_bic_original_renderer.js",
+          "inputs": {
+            "screen": "home_ready"
+          }
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "eGYB1",
+      "x": 1335,
+      "y": 0,
+      "name": "IOS-SCR-01 Home / Active Session",
+      "clip": true,
+      "width": 393,
+      "height": 852,
+      "fill": "#F5F5F7",
+      "cornerRadius": 36,
+      "layout": "none",
+      "children": [
+        {
+          "type": "script",
+          "id": "i11Ka",
+          "x": 0,
+          "y": 0,
+          "name": "script01c",
+          "width": 393,
+          "height": 852,
+          "scriptUri": "ai_bic_original_renderer.js",
+          "inputs": {
+            "screen": "home_active"
+          }
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "i71l7",
+      "x": 1780,
+      "y": 0,
+      "name": "IOS-SCR-01 Home / Resume Processing",
+      "clip": true,
+      "width": 393,
+      "height": 852,
+      "fill": "#F5F5F7",
+      "cornerRadius": 36,
+      "layout": "none",
+      "children": [
+        {
+          "type": "script",
+          "id": "ZxZX4",
+          "x": 0,
+          "y": 0,
+          "name": "script01d",
+          "width": 393,
+          "height": 852,
+          "scriptUri": "ai_bic_original_renderer.js",
+          "inputs": {
+            "screen": "home_processing"
+          }
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "sOViu",
+      "x": 2225,
+      "y": 0,
+      "name": "IOS-SCR-01 Home / Out of Credits",
+      "clip": true,
+      "width": 393,
+      "height": 852,
+      "fill": "#F5F5F7",
+      "cornerRadius": 36,
+      "layout": "none",
+      "children": [
+        {
+          "type": "script",
+          "id": "u7ode",
+          "x": 0,
+          "y": 0,
+          "name": "script01e",
+          "width": 393,
+          "height": 852,
+          "scriptUri": "ai_bic_original_renderer.js",
+          "inputs": {
+            "screen": "home_out_credits"
+          }
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "pkGsx",
+      "x": 2670,
+      "y": 0,
+      "name": "IOS-SCR-02 Resume Upload",
+      "clip": true,
+      "width": 393,
+      "height": 852,
+      "fill": "#F5F5F7",
+      "cornerRadius": 36,
+      "layout": "none",
+      "children": [
+        {
+          "type": "script",
+          "id": "A7R6a",
+          "x": 0,
+          "y": 0,
+          "name": "script02",
+          "width": 393,
+          "height": 852,
+          "scriptUri": "ai_bic_original_renderer.js",
+          "inputs": {
+            "screen": "resume_upload"
+          }
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "2uFeQ",
+      "x": 3115,
+      "y": 0,
+      "name": "IOS-SCR-03 Resume Status / Ready",
+      "clip": true,
+      "width": 393,
+      "height": 852,
+      "fill": "#F5F5F7",
+      "cornerRadius": 36,
+      "layout": "none",
+      "children": [
+        {
+          "type": "script",
+          "id": "VRIAl",
+          "x": 0,
+          "y": 0,
+          "name": "script03a",
+          "width": 393,
+          "height": 852,
+          "scriptUri": "ai_bic_original_renderer.js",
+          "inputs": {
+            "screen": "resume_ready"
+          }
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "dNlpU",
+      "x": 0,
+      "y": 930,
+      "name": "IOS-SCR-03 Resume Status / Unusable",
+      "clip": true,
+      "width": 393,
+      "height": 852,
+      "fill": "#F5F5F7",
+      "cornerRadius": 36,
+      "layout": "none",
+      "children": [
+        {
+          "type": "script",
+          "id": "ZafRl",
+          "x": 0,
+          "y": 0,
+          "name": "script03b",
+          "width": 393,
+          "height": 852,
+          "scriptUri": "ai_bic_original_renderer.js",
+          "inputs": {
+            "screen": "resume_unusable"
+          }
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "rif3C",
+      "x": 445,
+      "y": 930,
+      "name": "IOS-SCR-04 Training Focus Picker Sheet",
+      "clip": true,
+      "width": 393,
+      "height": 852,
+      "fill": "#F5F5F7",
+      "cornerRadius": 36,
+      "layout": "none",
+      "children": [
+        {
+          "type": "script",
+          "id": "Yf0WG",
+          "x": 0,
+          "y": 0,
+          "name": "script04",
+          "width": 393,
+          "height": 852,
+          "scriptUri": "ai_bic_original_renderer.js",
+          "inputs": {
+            "screen": "focus_picker"
+          }
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "1d7v0",
+      "x": 890,
+      "y": 930,
+      "name": "IOS-SCR-05 Training Session / Processing",
+      "clip": true,
+      "width": 393,
+      "height": 852,
+      "fill": "#000000",
+      "cornerRadius": 36,
+      "layout": "none",
+      "children": [
+        {
+          "type": "script",
+          "id": "jhGZO",
+          "x": 0,
+          "y": 0,
+          "name": "script05",
+          "width": 393,
+          "height": 852,
+          "scriptUri": "ai_bic_original_renderer.js",
+          "inputs": {
+            "screen": "processing"
+          }
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "56CEQ",
+      "x": 1335,
+      "y": 930,
+      "name": "IOS-SCR-06 First Answer / Idle",
+      "clip": true,
+      "width": 393,
+      "height": 852,
+      "fill": "#000000",
+      "cornerRadius": 36,
+      "layout": "none",
+      "children": [
+        {
+          "type": "script",
+          "id": "YYhfc",
+          "x": 0,
+          "y": 0,
+          "name": "script06a",
+          "width": 393,
+          "height": 852,
+          "scriptUri": "ai_bic_original_renderer.js",
+          "inputs": {
+            "screen": "first_answer"
+          }
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "nAkLv",
+      "x": 1780,
+      "y": 930,
+      "name": "IOS-SCR-06 First Answer / Review Recording",
+      "clip": true,
+      "width": 393,
+      "height": 852,
+      "fill": "#000000",
+      "cornerRadius": 36,
+      "layout": "none",
+      "children": [
+        {
+          "type": "script",
+          "id": "92oTs",
+          "x": 0,
+          "y": 0,
+          "name": "script06b",
+          "width": 393,
+          "height": 852,
+          "scriptUri": "ai_bic_original_renderer.js",
+          "inputs": {
+            "screen": "first_answer_review"
+          }
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "oaLvi",
+      "x": 2225,
+      "y": 930,
+      "name": "IOS-SCR-06 First Answer / Transcript Failure",
+      "clip": true,
+      "width": 393,
+      "height": 852,
+      "fill": "#000000",
+      "cornerRadius": 36,
+      "layout": "none",
+      "children": [
+        {
+          "type": "script",
+          "id": "05KO8",
+          "x": 0,
+          "y": 0,
+          "name": "script06c",
+          "width": 393,
+          "height": 852,
+          "scriptUri": "ai_bic_original_renderer.js",
+          "inputs": {
+            "screen": "transcript_failure"
+          }
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "dCODP",
+      "x": 2670,
+      "y": 930,
+      "name": "IOS-SCR-07 Follow-up Answer",
+      "clip": true,
+      "width": 393,
+      "height": 852,
+      "fill": "#000000",
+      "cornerRadius": 36,
+      "layout": "none",
+      "children": [
+        {
+          "type": "script",
+          "id": "KA982",
+          "x": 0,
+          "y": 0,
+          "name": "script07",
+          "width": 393,
+          "height": 852,
+          "scriptUri": "ai_bic_original_renderer.js",
+          "inputs": {
+            "screen": "followup_answer"
+          }
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "aMvoq",
+      "x": 3115,
+      "y": 930,
+      "name": "IOS-SCR-08 Feedback / Redo Decision",
+      "clip": true,
+      "width": 393,
+      "height": 852,
+      "fill": "#F5F5F7",
+      "cornerRadius": 36,
+      "layout": "none",
+      "children": [
+        {
+          "type": "script",
+          "id": "UaWsE",
+          "x": 0,
+          "y": 0,
+          "name": "script08",
+          "width": 393,
+          "height": 852,
+          "scriptUri": "ai_bic_original_renderer.js",
+          "inputs": {
+            "screen": "feedback"
+          }
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "gy7CN",
+      "x": 0,
+      "y": 1860,
+      "name": "IOS-SCR-09 Redo Answer",
+      "clip": true,
+      "width": 393,
+      "height": 852,
+      "fill": "#000000",
+      "cornerRadius": 36,
+      "layout": "none",
+      "children": [
+        {
+          "type": "script",
+          "id": "979yb",
+          "x": 0,
+          "y": 0,
+          "name": "script09",
+          "width": 393,
+          "height": 852,
+          "scriptUri": "ai_bic_original_renderer.js",
+          "inputs": {
+            "screen": "redo_answer"
+          }
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "7QiZx",
+      "x": 445,
+      "y": 1860,
+      "name": "IOS-SCR-10 Completed Result / Redo Review",
+      "clip": true,
+      "width": 393,
+      "height": 852,
+      "fill": "#F5F5F7",
+      "cornerRadius": 36,
+      "layout": "none",
+      "children": [
+        {
+          "type": "script",
+          "id": "uhcIt",
+          "x": 0,
+          "y": 0,
+          "name": "script10a",
+          "width": 393,
+          "height": 852,
+          "scriptUri": "ai_bic_original_renderer.js",
+          "inputs": {
+            "screen": "completed"
+          }
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "uSAjm",
+      "x": 890,
+      "y": 1860,
+      "name": "IOS-SCR-10 Completed Result / Review Unavailable",
+      "clip": true,
+      "width": 393,
+      "height": 852,
+      "fill": "#F5F5F7",
+      "cornerRadius": 36,
+      "layout": "none",
+      "children": [
+        {
+          "type": "script",
+          "id": "dcSAA",
+          "x": 0,
+          "y": 0,
+          "name": "script10b",
+          "width": 393,
+          "height": 852,
+          "scriptUri": "ai_bic_original_renderer.js",
+          "inputs": {
+            "screen": "completed_unavailable"
+          }
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "Avbqb",
+      "x": 1335,
+      "y": 1860,
+      "name": "IOS-SCR-11 History List",
+      "clip": true,
+      "width": 393,
+      "height": 852,
+      "fill": "#F5F5F7",
+      "cornerRadius": 36,
+      "layout": "none",
+      "children": [
+        {
+          "type": "script",
+          "id": "xbbhm",
+          "x": 0,
+          "y": 0,
+          "name": "script11",
+          "width": 393,
+          "height": 852,
+          "scriptUri": "ai_bic_original_renderer.js",
+          "inputs": {
+            "screen": "history_list"
+          }
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "uZ38i",
+      "x": 1780,
+      "y": 1860,
+      "name": "IOS-SCR-12 History Detail",
+      "clip": true,
+      "width": 393,
+      "height": 852,
+      "fill": "#F5F5F7",
+      "cornerRadius": 36,
+      "layout": "none",
+      "children": [
+        {
+          "type": "script",
+          "id": "Xbt12",
+          "x": 0,
+          "y": 0,
+          "name": "script12",
+          "width": 393,
+          "height": 852,
+          "scriptUri": "ai_bic_original_renderer.js",
+          "inputs": {
+            "screen": "history_detail"
+          }
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "2SC2M",
+      "x": 2225,
+      "y": 1860,
+      "name": "IOS-SCR-13 Paywall / Billing Sheet",
+      "clip": true,
+      "width": 393,
+      "height": 852,
+      "fill": "#F5F5F7",
+      "cornerRadius": 36,
+      "layout": "none",
+      "children": [
+        {
+          "type": "script",
+          "id": "0oxss",
+          "x": 0,
+          "y": 0,
+          "name": "script13",
+          "width": 393,
+          "height": 852,
+          "scriptUri": "ai_bic_original_renderer.js",
+          "inputs": {
+            "screen": "paywall"
+          }
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "vXb71",
+      "x": 2670,
+      "y": 1860,
+      "name": "IOS-SCR-14 Settings / Data",
+      "clip": true,
+      "width": 393,
+      "height": 852,
+      "fill": "#F5F5F7",
+      "cornerRadius": 36,
+      "layout": "none",
+      "children": [
+        {
+          "type": "script",
+          "id": "5ooUu",
+          "x": 0,
+          "y": 0,
+          "name": "script14",
+          "width": 393,
+          "height": 852,
+          "scriptUri": "ai_bic_original_renderer.js",
+          "inputs": {
+            "screen": "settings"
+          }
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "IY3GF",
+      "x": 3115,
+      "y": 1860,
+      "name": "IOS-SCR-15 Delete Confirmation Sheet",
+      "clip": true,
+      "width": 393,
+      "height": 852,
+      "fill": "#F5F5F7",
+      "cornerRadius": 36,
+      "layout": "none",
+      "children": [
+        {
+          "type": "script",
+          "id": "DNp3K",
+          "x": 0,
+          "y": 0,
+          "name": "script15",
+          "width": 393,
+          "height": 852,
+          "scriptUri": "ai_bic_original_renderer.js",
+          "inputs": {
+            "screen": "delete_sheet"
+          }
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "bcZG8",
+      "x": 0,
+      "y": 2790,
+      "name": "IOS-SCR-16 Offline / Fatal Recovery",
+      "clip": true,
+      "width": 393,
+      "height": 852,
+      "fill": "#F5F5F7",
+      "cornerRadius": 36,
+      "layout": "none",
+      "children": [
+        {
+          "type": "script",
+          "id": "hknuf",
+          "x": 0,
+          "y": 0,
+          "name": "script16",
+          "width": 393,
+          "height": 852,
+          "scriptUri": "ai_bic_original_renderer.js",
+          "inputs": {
+            "screen": "offline"
+          }
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "cX8mv",
+      "x": 445,
+      "y": 2790,
+      "name": "IOS-SCR-17 Privacy Notice",
+      "clip": true,
+      "width": 393,
+      "height": 852,
+      "fill": "#F5F5F7",
+      "cornerRadius": 36,
+      "layout": "none",
+      "children": [
+        {
+          "type": "script",
+          "id": "vCyXG",
+          "x": 0,
+          "y": 0,
+          "name": "script17",
+          "width": 393,
+          "height": 852,
+          "scriptUri": "ai_bic_original_renderer.js",
+          "inputs": {
+            "screen": "privacy"
+          }
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "3dwFQ",
+      "x": 890,
+      "y": 2790,
+      "name": "Global Sheet / Microphone Permission",
+      "clip": true,
+      "width": 393,
+      "height": 852,
+      "fill": "#000000",
+      "cornerRadius": 36,
+      "layout": "none",
+      "children": [
+        {
+          "type": "script",
+          "id": "FOqIf",
+          "x": 0,
+          "y": 0,
+          "name": "script18",
+          "width": 393,
+          "height": 852,
+          "scriptUri": "ai_bic_original_renderer.js",
+          "inputs": {
+            "screen": "mic_permission"
+          }
+        }
+      ]
+    }
+  ]
+}
