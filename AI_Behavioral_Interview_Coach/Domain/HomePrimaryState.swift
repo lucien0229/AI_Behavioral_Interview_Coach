@@ -25,12 +25,12 @@ enum HomePrimaryState: Equatable {
         case .unusable:
             return .resumeUnusable
         case .readyLimited:
-            if snapshot.credits.availableSessionCredits == 0 {
+            if snapshot.credits.availableSessionCredits <= 0 {
                 return .outOfCredits
             }
             return .readyLimited
         case .readyUsable:
-            if snapshot.credits.availableSessionCredits == 0 {
+            if snapshot.credits.availableSessionCredits <= 0 {
                 return .outOfCredits
             }
             return .ready

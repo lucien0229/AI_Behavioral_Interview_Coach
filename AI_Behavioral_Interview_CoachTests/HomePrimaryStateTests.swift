@@ -30,6 +30,61 @@ final class HomePrimaryStateTests: XCTestCase {
         XCTAssertEqual(HomePrimaryState.derive(from: snapshot), .outOfCredits)
     }
 
+    func testUploadingResumeWithNoCreditsShowsResumeProcessing() {
+        let snapshot = HomeSnapshot(
+            activeResume: .uploading(fileName: "alex_pm_resume.pdf"),
+            activeSession: nil,
+            credits: UsageBalance(availableSessionCredits: 0),
+            recentPractice: []
+        )
+
+        XCTAssertEqual(HomePrimaryState.derive(from: snapshot), .resumeProcessing)
+    }
+
+    func testParsingResumeWithNoCreditsShowsResumeProcessing() {
+        let snapshot = HomeSnapshot(
+            activeResume: .parsing(fileName: "alex_pm_resume.pdf"),
+            activeSession: nil,
+            credits: UsageBalance(availableSessionCredits: 0),
+            recentPractice: []
+        )
+
+        XCTAssertEqual(HomePrimaryState.derive(from: snapshot), .resumeProcessing)
+    }
+
+    func testFailedResumeWithNoCreditsShowsResumeFailed() {
+        let snapshot = HomeSnapshot(
+            activeResume: .failed(fileName: "alex_pm_resume.pdf", reason: "Unsupported format"),
+            activeSession: nil,
+            credits: UsageBalance(availableSessionCredits: 0),
+            recentPractice: []
+        )
+
+        XCTAssertEqual(HomePrimaryState.derive(from: snapshot), .resumeFailed)
+    }
+
+    func testUnusableResumeWithNoCreditsShowsResumeUnusable() {
+        let snapshot = HomeSnapshot(
+            activeResume: .unusable(fileName: "alex_pm_resume.pdf", reason: "Missing work history"),
+            activeSession: nil,
+            credits: UsageBalance(availableSessionCredits: 0),
+            recentPractice: []
+        )
+
+        XCTAssertEqual(HomePrimaryState.derive(from: snapshot), .resumeUnusable)
+    }
+
+    func testReadyUsableResumeWithCreditsShowsReady() {
+        let snapshot = HomeSnapshot(
+            activeResume: .readyUsable(fileName: "alex_pm_resume.pdf"),
+            activeSession: nil,
+            credits: UsageBalance(availableSessionCredits: 1),
+            recentPractice: []
+        )
+
+        XCTAssertEqual(HomePrimaryState.derive(from: snapshot), .ready)
+    }
+
     func testLimitedReadyResumeShowsReadyLimitedWhenCreditsRemain() {
         let snapshot = HomeSnapshot(
             activeResume: .readyLimited(fileName: "alex_pm_resume.pdf"),
@@ -39,5 +94,27 @@ final class HomePrimaryStateTests: XCTestCase {
         )
 
         XCTAssertEqual(HomePrimaryState.derive(from: snapshot), .readyLimited)
+    }
+
+    func testReadyLimitedResumeWithNoCreditsShowsOutOfCredits() {
+        let snapshot = HomeSnapshot(
+            activeResume: .readyLimited(fileName: "alex_pm_resume.pdf"),
+            activeSession: nil,
+            credits: UsageBalance(availableSessionCredits: 0),
+            recentPractice: []
+        )
+
+        XCTAssertEqual(HomePrimaryState.derive(from: snapshot), .outOfCredits)
+    }
+
+    func testReadyUsableResumeWithNegativeCreditsShowsOutOfCredits() {
+        let snapshot = HomeSnapshot(
+            activeResume: .readyUsable(fileName: "alex_pm_resume.pdf"),
+            activeSession: nil,
+            credits: UsageBalance(availableSessionCredits: -1),
+            recentPractice: []
+        )
+
+        XCTAssertEqual(HomePrimaryState.derive(from: snapshot), .outOfCredits)
     }
 }
