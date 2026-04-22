@@ -40,19 +40,26 @@ actor MockCoachService: CoachService {
         try validateResumeFileName(fileName)
 
         let uploadID = UUID()
+        let previousResume = activeResume
+        let previousUploadID = activeResumeUploadID
         activeResumeUploadID = uploadID
         activeResume = .uploading(fileName: fileName)
-        try await simulateProcessingDelay()
+        do {
+            try await simulateProcessingDelay()
 
-        try requireCurrentResumeUpload(id: uploadID)
-        activeResume = .parsing(fileName: fileName)
-        try await simulateProcessingDelay()
+            try requireCurrentResumeUpload(id: uploadID)
+            activeResume = .parsing(fileName: fileName)
+            try await simulateProcessingDelay()
 
-        try requireCurrentResumeUpload(id: uploadID)
-        let resume = ActiveResume.readyUsable(fileName: fileName)
-        activeResume = resume
-        activeResumeUploadID = nil
-        return resume
+            try requireCurrentResumeUpload(id: uploadID)
+            let resume = ActiveResume.readyUsable(fileName: fileName)
+            activeResume = resume
+            activeResumeUploadID = nil
+            return resume
+        } catch is CancellationError {
+            restoreCancelledUpload(id: uploadID, previousResume: previousResume, previousUploadID: previousUploadID)
+            throw CancellationError()
+        }
     }
 
     func deleteResume(mode: DeleteResumeMode) async throws -> HomeSnapshot {
@@ -92,12 +99,17 @@ actor MockCoachService: CoachService {
             completionReason: nil
         )
         activeSession = session
-        try await simulateProcessingDelay()
+        do {
+            try await simulateProcessingDelay()
 
-        var readySession = try requireActiveSession(id: session.id, status: .questionGenerating)
-        readySession.status = .waitingFirstAnswer
-        activeSession = readySession
-        return readySession
+            var readySession = try requireActiveSession(id: session.id, status: .questionGenerating)
+            readySession.status = .waitingFirstAnswer
+            activeSession = readySession
+            return readySession
+        } catch is CancellationError {
+            clearCancelledSession(id: session.id, status: .questionGenerating)
+            throw CancellationError()
+        }
     }
 
     func session(id: String) async throws -> TrainingSession {
@@ -124,18 +136,23 @@ actor MockCoachService: CoachService {
 
         session.status = .firstAnswerProcessing
         activeSession = session
-        try await simulateProcessingDelay()
+        do {
+            try await simulateProcessingDelay()
 
-        session = try requireActiveSession(id: sessionID, status: .firstAnswerProcessing)
-        session.status = .followupGenerating
-        activeSession = session
-        try await simulateProcessingDelay()
+            session = try requireActiveSession(id: sessionID, status: .firstAnswerProcessing)
+            session.status = .followupGenerating
+            activeSession = session
+            try await simulateProcessingDelay()
 
-        session = try requireActiveSession(id: sessionID, status: .followupGenerating)
-        session.status = .waitingFollowupAnswer
-        session.followupText = followupText(for: session.focus)
-        activeSession = session
-        return session
+            session = try requireActiveSession(id: sessionID, status: .followupGenerating)
+            session.status = .waitingFollowupAnswer
+            session.followupText = followupText(for: session.focus)
+            activeSession = session
+            return session
+        } catch is CancellationError {
+            revertCancelledFirstAnswer(sessionID: sessionID)
+            throw CancellationError()
+        }
     }
 
     func submitFollowupAnswer(sessionID: String) async throws -> TrainingSession {
@@ -147,19 +164,24 @@ actor MockCoachService: CoachService {
 
         session.status = .followupAnswerProcessing
         activeSession = session
-        try await simulateProcessingDelay()
+        do {
+            try await simulateProcessingDelay()
 
-        session = try requireActiveSession(id: sessionID, status: .followupAnswerProcessing)
-        session.status = .feedbackGenerating
-        activeSession = session
-        try await simulateProcessingDelay()
+            session = try requireActiveSession(id: sessionID, status: .followupAnswerProcessing)
+            session.status = .feedbackGenerating
+            activeSession = session
+            try await simulateProcessingDelay()
 
-        session = try requireActiveSession(id: sessionID, status: .feedbackGenerating)
-        session.status = .redoAvailable
-        session.feedback = mockFeedback
-        activeSession = session
-        credits.availableSessionCredits = max(0, credits.availableSessionCredits - 1)
-        return session
+            session = try requireActiveSession(id: sessionID, status: .feedbackGenerating)
+            session.status = .redoAvailable
+            session.feedback = mockFeedback
+            activeSession = session
+            credits.availableSessionCredits = max(0, credits.availableSessionCredits - 1)
+            return session
+        } catch is CancellationError {
+            revertCancelledFollowupAnswer(sessionID: sessionID)
+            throw CancellationError()
+        }
     }
 
     func submitRedo(sessionID: String) async throws -> TrainingSession {
@@ -171,19 +193,24 @@ actor MockCoachService: CoachService {
 
         session.status = .redoProcessing
         activeSession = session
-        try await simulateProcessingDelay()
+        do {
+            try await simulateProcessingDelay()
 
-        session = try requireActiveSession(id: sessionID, status: .redoProcessing)
-        session.status = .redoEvaluating
-        activeSession = session
-        try await simulateProcessingDelay()
+            session = try requireActiveSession(id: sessionID, status: .redoProcessing)
+            session.status = .redoEvaluating
+            activeSession = session
+            try await simulateProcessingDelay()
 
-        session = try requireActiveSession(id: sessionID, status: .redoEvaluating)
-        session.status = .completed
-        session.redoReview = mockRedoReview
-        session.completionReason = .redoReviewGenerated
-        completeActiveSession(session)
-        return session
+            session = try requireActiveSession(id: sessionID, status: .redoEvaluating)
+            session.status = .completed
+            session.redoReview = mockRedoReview
+            session.completionReason = .redoReviewGenerated
+            completeActiveSession(session)
+            return session
+        } catch is CancellationError {
+            revertCancelledRedo(sessionID: sessionID)
+            throw CancellationError()
+        }
     }
 
     func skipRedo(sessionID: String) async throws -> TrainingSession {
@@ -338,6 +365,69 @@ private extension MockCoachService {
     func requireCurrentResumeUpload(id: UUID) throws {
         guard activeResumeUploadID == id else {
             throw CoachServiceError.invalidSessionState
+        }
+    }
+
+    func restoreCancelledUpload(id: UUID, previousResume: ActiveResume?, previousUploadID: UUID?) {
+        guard activeResumeUploadID == id else {
+            return
+        }
+
+        activeResume = previousResume
+        activeResumeUploadID = previousUploadID
+    }
+
+    func clearCancelledSession(id: String, status: TrainingSessionStatus) {
+        guard activeSession?.id == id, activeSession?.status == status else {
+            return
+        }
+
+        activeSession = nil
+    }
+
+    func revertCancelledFirstAnswer(sessionID: String) {
+        guard var session = activeSession, session.id == sessionID else {
+            return
+        }
+
+        switch session.status {
+        case .firstAnswerProcessing, .followupGenerating:
+            session.status = .waitingFirstAnswer
+            session.followupText = nil
+            activeSession = session
+        default:
+            return
+        }
+    }
+
+    func revertCancelledFollowupAnswer(sessionID: String) {
+        guard var session = activeSession, session.id == sessionID else {
+            return
+        }
+
+        switch session.status {
+        case .followupAnswerProcessing, .feedbackGenerating:
+            session.status = .waitingFollowupAnswer
+            session.feedback = nil
+            activeSession = session
+        default:
+            return
+        }
+    }
+
+    func revertCancelledRedo(sessionID: String) {
+        guard var session = activeSession, session.id == sessionID else {
+            return
+        }
+
+        switch session.status {
+        case .redoProcessing, .redoEvaluating:
+            session.status = .redoAvailable
+            session.redoReview = nil
+            session.completionReason = nil
+            activeSession = session
+        default:
+            return
         }
     }
 

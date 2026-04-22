@@ -121,6 +121,74 @@ final class MockCoachServiceTests: XCTestCase {
         XCTAssertNotNil(home.activeSession)
     }
 
+    func testCancelUploadDuringProcessingDoesNotLeaveUploadingOrParsingResume() async throws {
+        let service = MockCoachService(processingDelayNanoseconds: 50_000_000)
+        _ = try await service.bootstrap()
+
+        let uploadTask = Task {
+            await uploadResumeResult(service: service, fileName: "alex_pm_resume.pdf")
+        }
+        try await Task.sleep(nanoseconds: 10_000_000)
+        uploadTask.cancel()
+
+        let uploadResult = await uploadTask.value
+        let home = try await service.home()
+
+        if case .success = uploadResult {
+            XCTFail("Expected canceled upload to fail")
+        }
+        switch home.activeResume {
+        case .some(.uploading), .some(.parsing):
+            XCTFail("Expected canceled upload to clear transient resume state")
+        default:
+            XCTAssertNil(home.activeResume)
+        }
+    }
+
+    func testCancelCreateSessionDuringQuestionGenerationClearsActiveSession() async throws {
+        let service = MockCoachService(processingDelayNanoseconds: 50_000_000)
+        _ = try await service.bootstrap()
+        _ = try await service.uploadResume(fileName: "alex_pm_resume.pdf")
+
+        let createTask = Task {
+            await createSessionResult(service: service, focus: .ownership)
+        }
+        try await Task.sleep(nanoseconds: 10_000_000)
+        createTask.cancel()
+
+        let createResult = await createTask.value
+        let home = try await service.home()
+
+        if case .success = createResult {
+            XCTFail("Expected canceled session creation to fail")
+        }
+        XCTAssertNil(home.activeSession)
+    }
+
+    func testCancelFollowupSubmitDuringFeedbackGenerationRevertsSessionAndKeepsCredit() async throws {
+        let service = MockCoachService(processingDelayNanoseconds: 50_000_000)
+        _ = try await service.bootstrap()
+        _ = try await service.uploadResume(fileName: "alex_pm_resume.pdf")
+        var session = try await service.createTrainingSession(focus: .ownership)
+        session = try await service.submitFirstAnswer(sessionID: session.id)
+
+        let submitTask = Task {
+            await submitFollowupResult(service: service, sessionID: session.id)
+        }
+        try await Task.sleep(nanoseconds: 60_000_000)
+        submitTask.cancel()
+
+        let submitResult = await submitTask.value
+        let home = try await service.home()
+
+        if case .success = submitResult {
+            XCTFail("Expected canceled followup submission to fail")
+        }
+        XCTAssertEqual(home.activeSession?.status, .waitingFollowupAnswer)
+        XCTAssertNil(home.activeSession?.feedback)
+        XCTAssertEqual(home.credits.availableSessionCredits, 2)
+    }
+
     func testDeleteAllDataDuringFollowupProcessingDoesNotResurrectSessionOrConsumeCredit() async throws {
         let service = MockCoachService(processingDelayNanoseconds: 50_000_000)
         _ = try await service.bootstrap()
