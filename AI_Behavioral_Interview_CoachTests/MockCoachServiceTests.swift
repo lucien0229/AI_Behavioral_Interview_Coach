@@ -92,4 +92,113 @@ final class MockCoachServiceTests: XCTestCase {
             XCTAssertTrue(true)
         }
     }
+
+    func testConcurrentCreateOnlyLeavesOneActiveSession() async throws {
+        let service = MockCoachService(processingDelayNanoseconds: 50_000_000)
+        _ = try await service.bootstrap()
+        _ = try await service.uploadResume(fileName: "alex_pm_resume.pdf")
+
+        async let ownershipResult = createSessionResult(service: service, focus: .ownership)
+        async let prioritizationResult = createSessionResult(service: service, focus: .prioritization)
+        let results = await [ownershipResult, prioritizationResult]
+
+        let successCount = results.filter { result in
+            if case .success = result {
+                return true
+            }
+            return false
+        }.count
+        let activeSessionErrorCount = results.filter { result in
+            if case .failure(.activeSessionExists) = result {
+                return true
+            }
+            return false
+        }.count
+        let home = try await service.home()
+
+        XCTAssertEqual(successCount, 1)
+        XCTAssertEqual(activeSessionErrorCount, 1)
+        XCTAssertNotNil(home.activeSession)
+    }
+
+    func testDeleteAllDataDuringFollowupProcessingDoesNotResurrectSessionOrConsumeCredit() async throws {
+        let service = MockCoachService(processingDelayNanoseconds: 50_000_000)
+        _ = try await service.bootstrap()
+        _ = try await service.uploadResume(fileName: "alex_pm_resume.pdf")
+        var session = try await service.createTrainingSession(focus: .ownership)
+        session = try await service.submitFirstAnswer(sessionID: session.id)
+
+        let submitTask = Task {
+            await submitFollowupResult(service: service, sessionID: session.id)
+        }
+        try await Task.sleep(nanoseconds: 10_000_000)
+        _ = try await service.deleteAllData()
+
+        let submitResult = await submitTask.value
+        let home = try await service.home()
+
+        if case .success = submitResult {
+            XCTFail("Expected stale followup submission to fail")
+        }
+        XCTAssertNil(home.activeSession)
+        XCTAssertEqual(home.credits.availableSessionCredits, 2)
+    }
+
+    func testDeleteResumeDuringUploadDoesNotRecreateResume() async throws {
+        let service = MockCoachService(processingDelayNanoseconds: 50_000_000)
+        _ = try await service.bootstrap()
+
+        let uploadTask = Task {
+            await uploadResumeResult(service: service, fileName: "alex_pm_resume.pdf")
+        }
+        try await Task.sleep(nanoseconds: 10_000_000)
+        _ = try await service.deleteResume(mode: .resumeOnlyRedactedHistory)
+
+        let uploadResult = await uploadTask.value
+        let home = try await service.home()
+
+        if case .success = uploadResult {
+            XCTFail("Expected stale upload to fail")
+        }
+        XCTAssertNil(home.activeResume)
+    }
+}
+
+private func createSessionResult(
+    service: MockCoachService,
+    focus: TrainingFocus
+) async -> Result<TrainingSession, CoachServiceError> {
+    do {
+        return .success(try await service.createTrainingSession(focus: focus))
+    } catch let error as CoachServiceError {
+        return .failure(error)
+    } catch {
+        return .failure(.mockFailure(message: String(describing: error)))
+    }
+}
+
+private func submitFollowupResult(
+    service: MockCoachService,
+    sessionID: String
+) async -> Result<TrainingSession, CoachServiceError> {
+    do {
+        return .success(try await service.submitFollowupAnswer(sessionID: sessionID))
+    } catch let error as CoachServiceError {
+        return .failure(error)
+    } catch {
+        return .failure(.mockFailure(message: String(describing: error)))
+    }
+}
+
+private func uploadResumeResult(
+    service: MockCoachService,
+    fileName: String
+) async -> Result<ActiveResume, CoachServiceError> {
+    do {
+        return .success(try await service.uploadResume(fileName: fileName))
+    } catch let error as CoachServiceError {
+        return .failure(error)
+    } catch {
+        return .failure(.mockFailure(message: String(describing: error)))
+    }
 }

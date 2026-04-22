@@ -4,6 +4,7 @@ actor MockCoachService: CoachService {
     private let processingDelayNanoseconds: UInt64
     private var bootstrapContext: BootstrapContext?
     private var activeResume: ActiveResume?
+    private var activeResumeUploadID: UUID?
     private var credits = UsageBalance.initialFree
     private var activeSession: TrainingSession?
     private var completedSessions: [TrainingSession] = []
@@ -38,20 +39,28 @@ actor MockCoachService: CoachService {
         try requireBootstrap()
         try validateResumeFileName(fileName)
 
+        let uploadID = UUID()
+        activeResumeUploadID = uploadID
         activeResume = .uploading(fileName: fileName)
         try await simulateProcessingDelay()
+
+        try requireCurrentResumeUpload(id: uploadID)
         activeResume = .parsing(fileName: fileName)
         try await simulateProcessingDelay()
 
+        try requireCurrentResumeUpload(id: uploadID)
         let resume = ActiveResume.readyUsable(fileName: fileName)
         activeResume = resume
+        activeResumeUploadID = nil
         return resume
     }
 
     func deleteResume(mode: DeleteResumeMode) async throws -> HomeSnapshot {
         try requireBootstrap()
+        activeResumeUploadID = nil
         try await simulateProcessingDelay()
 
+        activeResumeUploadID = nil
         activeResume = nil
 
         if mode == .resumeAndLinkedTraining {
@@ -88,7 +97,7 @@ actor MockCoachService: CoachService {
         activeSession = session
         try await simulateProcessingDelay()
 
-        var readySession = session
+        var readySession = try requireActiveSession(id: session.id, status: .questionGenerating)
         readySession.status = .waitingFirstAnswer
         activeSession = readySession
         return readySession
@@ -120,10 +129,12 @@ actor MockCoachService: CoachService {
         activeSession = session
         try await simulateProcessingDelay()
 
+        session = try requireActiveSession(id: sessionID, status: .firstAnswerProcessing)
         session.status = .followupGenerating
         activeSession = session
         try await simulateProcessingDelay()
 
+        session = try requireActiveSession(id: sessionID, status: .followupGenerating)
         session.status = .waitingFollowupAnswer
         session.followupText = followupText(for: session.focus)
         activeSession = session
@@ -141,10 +152,12 @@ actor MockCoachService: CoachService {
         activeSession = session
         try await simulateProcessingDelay()
 
+        session = try requireActiveSession(id: sessionID, status: .followupAnswerProcessing)
         session.status = .feedbackGenerating
         activeSession = session
         try await simulateProcessingDelay()
 
+        session = try requireActiveSession(id: sessionID, status: .feedbackGenerating)
         session.status = .redoAvailable
         session.feedback = mockFeedback
         activeSession = session
@@ -163,10 +176,12 @@ actor MockCoachService: CoachService {
         activeSession = session
         try await simulateProcessingDelay()
 
+        session = try requireActiveSession(id: sessionID, status: .redoProcessing)
         session.status = .redoEvaluating
         activeSession = session
         try await simulateProcessingDelay()
 
+        session = try requireActiveSession(id: sessionID, status: .redoEvaluating)
         session.status = .completed
         session.redoReview = mockRedoReview
         session.completionReason = .redoReviewGenerated
@@ -175,14 +190,7 @@ actor MockCoachService: CoachService {
     }
 
     func skipRedo(sessionID: String) async throws -> TrainingSession {
-        var session = try requireActiveSession(id: sessionID)
-
-        guard session.status == .redoAvailable else {
-            throw CoachServiceError.invalidSessionState
-        }
-
-        try await simulateProcessingDelay()
-
+        var session = try requireActiveSession(id: sessionID, status: .redoAvailable)
         session.status = .completed
         session.completionReason = .redoSkipped
         completeActiveSession(session)
@@ -231,8 +239,10 @@ actor MockCoachService: CoachService {
     }
 
     func deleteAllData() async throws -> BootstrapContext {
+        activeResumeUploadID = nil
         try await simulateProcessingDelay()
 
+        activeResumeUploadID = nil
         activeResume = nil
         credits = .initialFree
         activeSession = nil
@@ -321,6 +331,22 @@ private extension MockCoachService {
         }
 
         return activeSession
+    }
+
+    func requireActiveSession(id: String, status: TrainingSessionStatus) throws -> TrainingSession {
+        let session = try requireActiveSession(id: id)
+
+        guard session.status == status else {
+            throw CoachServiceError.invalidSessionState
+        }
+
+        return session
+    }
+
+    func requireCurrentResumeUpload(id: UUID) throws {
+        guard activeResumeUploadID == id else {
+            throw CoachServiceError.invalidSessionState
+        }
     }
 
     func completeActiveSession(_ session: TrainingSession) {
