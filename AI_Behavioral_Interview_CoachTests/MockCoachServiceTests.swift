@@ -60,4 +60,36 @@ final class MockCoachServiceTests: XCTestCase {
         let home = try await service.home()
         XCTAssertEqual(home.credits.availableSessionCredits, 7)
     }
+
+    func testMockRestoreAddsCredits() async throws {
+        let service = MockCoachService(processingDelayNanoseconds: 0)
+        _ = try await service.bootstrap()
+        try await service.mockRestorePurchase()
+
+        let home = try await service.home()
+        XCTAssertEqual(home.credits.availableSessionCredits, 7)
+    }
+
+    func testActiveSessionErrorWinsOverMissingResumeAndNoCredits() async throws {
+        let service = MockCoachService(processingDelayNanoseconds: 0)
+        _ = try await service.bootstrap()
+        _ = try await service.uploadResume(fileName: "alex_pm_resume.pdf")
+
+        var session = try await service.createTrainingSession(focus: .ownership)
+        session = try await service.submitFirstAnswer(sessionID: session.id)
+        session = try await service.submitFollowupAnswer(sessionID: session.id)
+        _ = try await service.skipRedo(sessionID: session.id)
+
+        session = try await service.createTrainingSession(focus: .prioritization)
+        session = try await service.submitFirstAnswer(sessionID: session.id)
+        _ = try await service.submitFollowupAnswer(sessionID: session.id)
+        _ = try await service.deleteResume(mode: .resumeOnlyRedactedHistory)
+
+        do {
+            _ = try await service.createTrainingSession(focus: .ambiguity)
+            XCTFail("Expected active session error")
+        } catch CoachServiceError.activeSessionExists {
+            XCTAssertTrue(true)
+        }
+    }
 }

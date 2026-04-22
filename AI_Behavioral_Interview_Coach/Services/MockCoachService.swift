@@ -64,21 +64,20 @@ actor MockCoachService: CoachService {
 
     func createTrainingSession(focus: TrainingFocus) async throws -> TrainingSession {
         try requireBootstrap()
+
+        guard activeSession == nil else {
+            throw CoachServiceError.activeSessionExists
+        }
+
         try requireReadyResume()
 
         guard credits.availableSessionCredits > 0 else {
             throw CoachServiceError.noCredits
         }
 
-        guard activeSession == nil else {
-            throw CoachServiceError.activeSessionExists
-        }
-
-        try await simulateProcessingDelay()
-
         let session = TrainingSession(
             id: "session_\(UUID().uuidString)",
-            status: .waitingFirstAnswer,
+            status: .questionGenerating,
             focus: focus,
             questionText: questionText(for: focus),
             followupText: nil,
@@ -87,7 +86,12 @@ actor MockCoachService: CoachService {
             completionReason: nil
         )
         activeSession = session
-        return session
+        try await simulateProcessingDelay()
+
+        var readySession = session
+        readySession.status = .waitingFirstAnswer
+        activeSession = readySession
+        return readySession
     }
 
     func session(id: String) async throws -> TrainingSession {
@@ -223,7 +227,7 @@ actor MockCoachService: CoachService {
     func mockRestorePurchase() async throws {
         try requireBootstrap()
         try await simulateProcessingDelay()
-        credits.availableSessionCredits = max(credits.availableSessionCredits, 2)
+        credits.availableSessionCredits += 5
     }
 
     func deleteAllData() async throws -> BootstrapContext {
