@@ -58,9 +58,6 @@ actor MockCoachService: CoachService {
     func deleteResume(mode: DeleteResumeMode) async throws -> HomeSnapshot {
         try requireBootstrap()
         activeResumeUploadID = nil
-        try await simulateProcessingDelay()
-
-        activeResumeUploadID = nil
         activeResume = nil
 
         if mode == .resumeAndLinkedTraining {
@@ -228,20 +225,15 @@ actor MockCoachService: CoachService {
 
     func mockPurchaseSprintPack() async throws {
         try requireBootstrap()
-        try await simulateProcessingDelay()
         credits.availableSessionCredits += 5
     }
 
     func mockRestorePurchase() async throws {
         try requireBootstrap()
-        try await simulateProcessingDelay()
         credits.availableSessionCredits += 5
     }
 
     func deleteAllData() async throws -> BootstrapContext {
-        activeResumeUploadID = nil
-        try await simulateProcessingDelay()
-
         activeResumeUploadID = nil
         activeResume = nil
         credits = .initialFree

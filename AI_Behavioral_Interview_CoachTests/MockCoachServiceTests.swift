@@ -162,6 +162,30 @@ final class MockCoachServiceTests: XCTestCase {
         }
         XCTAssertNil(home.activeResume)
     }
+
+    func testNewUploadImmediatelyAfterDeleteResumeIsNotCanceledByDelete() async throws {
+        let service = MockCoachService(processingDelayNanoseconds: 50_000_000)
+        _ = try await service.bootstrap()
+        _ = try await service.uploadResume(fileName: "old_resume.pdf")
+        _ = try await service.deleteResume(mode: .resumeOnlyRedactedHistory)
+
+        let resume = try await service.uploadResume(fileName: "new_resume.pdf")
+        let home = try await service.home()
+
+        XCTAssertEqual(resume, .readyUsable(fileName: "new_resume.pdf"))
+        XCTAssertEqual(home.activeResume, .readyUsable(fileName: "new_resume.pdf"))
+    }
+
+    func testDeleteAllDataThenPurchaseProducesInitialPlusPackCredits() async throws {
+        let service = MockCoachService(processingDelayNanoseconds: 50_000_000)
+        _ = try await service.bootstrap()
+        try await service.mockPurchaseSprintPack()
+        _ = try await service.deleteAllData()
+        try await service.mockPurchaseSprintPack()
+
+        let home = try await service.home()
+        XCTAssertEqual(home.credits.availableSessionCredits, 7)
+    }
 }
 
 private func createSessionResult(
