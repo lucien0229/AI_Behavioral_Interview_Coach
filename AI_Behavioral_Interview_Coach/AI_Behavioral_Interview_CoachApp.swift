@@ -1,4 +1,3 @@
-import Observation
 import SwiftUI
 
 @main
@@ -11,12 +10,6 @@ struct AI_Behavioral_Interview_CoachApp: App {
                 .environment(appModel)
         }
     }
-}
-
-@MainActor
-@Observable
-private final class AppModel {
-    init(service: any CoachService) {}
 }
 
 private struct LaunchView: View {
