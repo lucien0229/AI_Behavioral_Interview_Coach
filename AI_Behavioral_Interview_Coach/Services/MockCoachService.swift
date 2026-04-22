@@ -41,7 +41,6 @@ actor MockCoachService: CoachService {
 
         let uploadID = UUID()
         let previousResume = activeResume
-        let previousUploadID = activeResumeUploadID
         activeResumeUploadID = uploadID
         activeResume = .uploading(fileName: fileName)
         do {
@@ -57,7 +56,7 @@ actor MockCoachService: CoachService {
             activeResumeUploadID = nil
             return resume
         } catch is CancellationError {
-            restoreCancelledUpload(id: uploadID, previousResume: previousResume, previousUploadID: previousUploadID)
+            restoreCancelledUpload(id: uploadID, previousResume: previousResume)
             throw CancellationError()
         }
     }
@@ -368,13 +367,18 @@ private extension MockCoachService {
         }
     }
 
-    func restoreCancelledUpload(id: UUID, previousResume: ActiveResume?, previousUploadID: UUID?) {
+    func restoreCancelledUpload(id: UUID, previousResume: ActiveResume?) {
         guard activeResumeUploadID == id else {
             return
         }
 
-        activeResume = previousResume
-        activeResumeUploadID = previousUploadID
+        switch previousResume {
+        case .readyUsable, .readyLimited, .unusable, .failed:
+            activeResume = previousResume
+        case .uploading, .parsing, nil:
+            activeResume = nil
+        }
+        activeResumeUploadID = nil
     }
 
     func clearCancelledSession(id: String, status: TrainingSessionStatus) {

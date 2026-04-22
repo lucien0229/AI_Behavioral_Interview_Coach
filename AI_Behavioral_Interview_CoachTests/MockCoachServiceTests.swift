@@ -145,6 +145,39 @@ final class MockCoachServiceTests: XCTestCase {
         }
     }
 
+    func testCancelSupersedingUploadDoesNotRestoreStaleTransientUpload() async throws {
+        let service = MockCoachService(processingDelayNanoseconds: 50_000_000)
+        _ = try await service.bootstrap()
+
+        let firstUploadTask = Task {
+            await uploadResumeResult(service: service, fileName: "first_resume.pdf")
+        }
+        try await Task.sleep(nanoseconds: 10_000_000)
+
+        let secondUploadTask = Task {
+            await uploadResumeResult(service: service, fileName: "second_resume.pdf")
+        }
+        try await Task.sleep(nanoseconds: 70_000_000)
+        secondUploadTask.cancel()
+
+        let firstUploadResult = await firstUploadTask.value
+        let secondUploadResult = await secondUploadTask.value
+        let home = try await service.home()
+
+        if case .success = firstUploadResult {
+            XCTFail("Expected superseded upload to fail")
+        }
+        if case .success = secondUploadResult {
+            XCTFail("Expected canceled superseding upload to fail")
+        }
+        switch home.activeResume {
+        case .some(.uploading), .some(.parsing):
+            XCTFail("Expected canceled superseding upload not to restore stale transient state")
+        default:
+            XCTAssertTrue(true)
+        }
+    }
+
     func testCancelCreateSessionDuringQuestionGenerationClearsActiveSession() async throws {
         let service = MockCoachService(processingDelayNanoseconds: 50_000_000)
         _ = try await service.bootstrap()
