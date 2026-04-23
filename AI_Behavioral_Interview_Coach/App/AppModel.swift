@@ -99,32 +99,38 @@ final class AppModel {
         }
     }
 
-    func submitFirstAnswer() async {
-        guard let currentSession else { return }
+    func submitFirstAnswer() async -> Bool {
+        guard let currentSession else { return false }
         do {
             self.currentSession = try await service.submitFirstAnswer(sessionID: currentSession.id)
+            return true
         } catch {
             activeSheet = .apiError("We could not submit your answer. Please try again.")
+            return false
         }
     }
 
-    func submitFollowupAnswer() async {
-        guard let currentSession else { return }
+    func submitFollowupAnswer() async -> Bool {
+        guard let currentSession else { return false }
         do {
             self.currentSession = try await service.submitFollowupAnswer(sessionID: currentSession.id)
             homeSnapshot = try await service.home()
+            return true
         } catch {
             activeSheet = .apiError("We could not submit your follow-up answer. Please try again.")
+            return false
         }
     }
 
-    func submitRedo() async {
-        guard let currentSession else { return }
+    func submitRedo() async -> Bool {
+        guard let currentSession else { return false }
         do {
             self.currentSession = try await service.submitRedo(sessionID: currentSession.id)
             await refreshHome()
+            return true
         } catch {
             activeSheet = .apiError("We could not evaluate your redo. Your original feedback is saved.")
+            return false
         }
     }
 

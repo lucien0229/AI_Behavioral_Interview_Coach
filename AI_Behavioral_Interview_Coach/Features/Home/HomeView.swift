@@ -201,6 +201,8 @@ private struct HomeActiveSessionView: View {
 
     var body: some View {
         CoachLightScreen {
+            let session = appModel.homeSnapshot.activeSession
+
             VStack(alignment: .leading, spacing: 24) {
                 HomeHeaderView(subtitle: "Continue where you left off")
 
@@ -212,14 +214,14 @@ private struct HomeActiveSessionView: View {
                 )
 
                 CoachPrimaryButton(title: "Continue session") {
-                    if let session = appModel.homeSnapshot.activeSession ?? appModel.currentSession {
+                    if let session {
                         appModel.navigationPath.append(.trainingSession(sessionID: session.id))
                     }
                 }
 
                 HomeRowList(items: [
-                    .init(systemImage: "arrow.2.squarepath", title: "Current step", detail: currentStepText(appModel.homeSnapshot.activeSession ?? appModel.currentSession), showsChevron: false),
-                    .init(systemImage: "target", title: "Current focus", detail: currentFocusText(session: appModel.homeSnapshot.activeSession ?? appModel.currentSession, selectedFocus: appModel.selectedFocus), showsChevron: false),
+                    .init(systemImage: "arrow.2.squarepath", title: "Current step", detail: currentStepText(session), showsChevron: false),
+                    .init(systemImage: "target", title: "Current focus", detail: currentFocusText(session: session, selectedFocus: appModel.selectedFocus), showsChevron: false),
                     .init(systemImage: "dollarsign.circle", title: "Practice credits", detail: creditsCopy(appModel.homeSnapshot.credits.availableSessionCredits), showsChevron: false),
                     .init(systemImage: "questionmark.circle", title: "View all history", detail: "Recent practice summaries", showsChevron: true) {
                         appModel.navigationPath.append(.historyList)

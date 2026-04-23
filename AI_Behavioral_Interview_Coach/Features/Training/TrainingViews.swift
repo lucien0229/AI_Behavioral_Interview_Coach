@@ -202,7 +202,7 @@ private struct RecordingPromptView<Supplement: View>: View {
     let submitTitle: String
     let topSupplement: () -> Supplement
     let onBackHome: () -> Void
-    let onSubmit: () async -> Void
+    let onSubmit: () async -> Bool
 
     init(
         navTitle: String,
@@ -213,7 +213,7 @@ private struct RecordingPromptView<Supplement: View>: View {
         submitTitle: String,
         @ViewBuilder topSupplement: @escaping () -> Supplement,
         onBackHome: @escaping () -> Void,
-        onSubmit: @escaping () async -> Void
+        onSubmit: @escaping () async -> Bool
     ) {
         self.navTitle = navTitle
         self.focus = focus
@@ -414,8 +414,9 @@ private struct RecordingPromptView<Supplement: View>: View {
         isSubmitting = true
         defer { isSubmitting = false }
 
-        await onSubmit()
-        recorder.cleanupRecording()
+        if await onSubmit() {
+            recorder.cleanupRecording()
+        }
     }
 }
 
@@ -482,7 +483,7 @@ private struct RedoAnswerView: View {
 
     let session: TrainingSession
     let onBack: () -> Void
-    let onSubmit: () async -> Void
+    let onSubmit: () async -> Bool
     let onSubmitFinished: () -> Void
 
     var body: some View {
@@ -669,9 +670,10 @@ private struct RedoAnswerView: View {
         isSubmitting = true
         defer { isSubmitting = false }
 
-        await onSubmit()
-        recorder.cleanupRecording()
-        onSubmitFinished()
+        if await onSubmit() {
+            recorder.cleanupRecording()
+            onSubmitFinished()
+        }
     }
 }
 
