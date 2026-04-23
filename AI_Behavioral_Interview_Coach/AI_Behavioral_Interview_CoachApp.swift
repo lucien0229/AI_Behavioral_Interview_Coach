@@ -11,11 +11,3 @@ struct AI_Behavioral_Interview_CoachApp: App {
         }
     }
 }
-
-private struct LaunchView: View {
-    var body: some View {
-        Text("Interview Coach")
-            .font(.title)
-            .padding()
-    }
-}
