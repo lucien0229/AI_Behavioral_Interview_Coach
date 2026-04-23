@@ -185,15 +185,15 @@ private struct HomeReadyView: View {
                         CoachTag(title: "Influence")
                     }
 
-                    HomeRowList(items: [
-                        .init(systemImage: "dollarsign.circle", title: "Practice credits", detail: creditsCopy(appModel.homeSnapshot.credits.availableSessionCredits), showsChevron: false),
-                        .init(systemImage: "questionmark.circle", title: "Last practice", detail: "Prioritization · Redo skipped · Mixed", showsChevron: true) {
-                            appModel.navigationPath.append(.historyList)
-                        },
-                        .init(systemImage: "questionmark.circle", title: "View all history", detail: "Recent practice summaries", showsChevron: true) {
-                            appModel.navigationPath.append(.historyList)
+                    HomeRowList(items: homeHistoryRows(
+                        recentPractice: appModel.homeSnapshot.recentPractice,
+                        emptyState: nil,
+                        showHistoryListRow: true,
+                        historyListAction: { appModel.navigationPath.append(.historyList) },
+                        historyDetailAction: { sessionID in
+                            appModel.navigationPath.append(.historyDetail(sessionID: sessionID))
                         }
-                    ])
+                    ))
                 }
             }
         }
@@ -259,14 +259,66 @@ private struct HomeResumeProcessingView: View {
                     .init(systemImage: "doc.text", title: appModel.homeSnapshot.activeResume?.fileName ?? "alex_pm_resume.pdf", detail: resumeProcessingDetail(appModel.homeSnapshot.activeResume), showsChevron: true) {
                         appModel.navigationPath.append(.resumeManage)
                     },
-                    .init(systemImage: "dollarsign.circle", title: "Practice credits", detail: creditsCopy(appModel.homeSnapshot.credits.availableSessionCredits), showsChevron: false),
-                    .init(systemImage: "questionmark.circle", title: "Last practice", detail: "Available while resume is processing", showsChevron: true) {
-                        appModel.navigationPath.append(.historyList)
+                    .init(systemImage: "dollarsign.circle", title: "Practice credits", detail: creditsCopy(appModel.homeSnapshot.credits.availableSessionCredits), showsChevron: false)
+                ] + homeHistoryRows(
+                    recentPractice: appModel.homeSnapshot.recentPractice,
+                    emptyState: .init(title: "History", detail: "Complete a round to see summaries"),
+                    showHistoryListRow: true,
+                    historyListAction: { appModel.navigationPath.append(.historyList) },
+                    historyDetailAction: { sessionID in
+                        appModel.navigationPath.append(.historyDetail(sessionID: sessionID))
                     }
-                ])
+                ))
             }
         }
     }
+}
+
+private struct HomeHistoryEmptyState {
+    let title: String
+    let detail: String
+}
+
+private func homeHistoryRows(
+    recentPractice: [PracticeSummary],
+    emptyState: HomeHistoryEmptyState?,
+    showHistoryListRow: Bool,
+    historyListAction: @escaping () -> Void,
+    historyDetailAction: @escaping (String) -> Void
+) -> [HomeRowItem] {
+    var items: [HomeRowItem] = []
+
+    if let summary = recentPractice.first {
+        items.append(
+            .init(
+                systemImage: "questionmark.circle",
+                title: "Last practice",
+                detail: "\(summary.subtitle) · \(summary.status)",
+                showsChevron: true
+            ) {
+                historyDetailAction(summary.id)
+            }
+        )
+    } else if let emptyState {
+        items.append(
+            .init(
+                systemImage: "questionmark.circle",
+                title: emptyState.title,
+                detail: emptyState.detail,
+                showsChevron: false
+            )
+        )
+    }
+
+    if showHistoryListRow {
+        items.append(
+            .init(systemImage: "questionmark.circle", title: "View all history", detail: "Recent practice summaries", showsChevron: true) {
+                historyListAction()
+            }
+        )
+    }
+
+    return items
 }
 
 private struct HomeOutOfCreditsView: View {
