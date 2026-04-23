@@ -63,8 +63,16 @@ final class AppModel {
         } catch CoachServiceError.noCredits {
             activeSheet = .paywall
         } catch CoachServiceError.activeSessionExists {
-            if let active = homeSnapshot.activeSession {
-                navigationPath.append(.trainingSession(sessionID: active.id))
+            do {
+                homeSnapshot = try await service.home()
+                guard let activeSession = homeSnapshot.activeSession else {
+                    activeSheet = .apiError("We could not find your active practice round.")
+                    return
+                }
+                currentSession = activeSession
+                navigationPath.append(.trainingSession(sessionID: activeSession.id))
+            } catch {
+                activeSheet = .apiError("We could not start this practice round.")
             }
         } catch {
             activeSheet = .apiError("We could not start this practice round.")
@@ -132,6 +140,10 @@ final class AppModel {
         do {
             _ = try await service.deleteAllData()
             navigationPath.removeAll()
+            currentSession = nil
+            activeSheet = nil
+            history = []
+            selectedFocus = .ownership
             await refreshHome()
         } catch {
             activeSheet = .apiError("We could not delete your app data.")

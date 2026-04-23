@@ -1,0 +1,55 @@
+import XCTest
+@testable import AI_Behavioral_Interview_Coach
+
+final class AppModelTests: XCTestCase {
+    @MainActor
+    func testActiveSessionExistsRefreshesHomeAndRoutesToActiveSession() async throws {
+        let service = MockCoachService(processingDelayNanoseconds: 0)
+        _ = try await service.bootstrap()
+        _ = try await service.uploadResume(fileName: "alex_pm_resume.pdf")
+        let activeSession = try await service.createTrainingSession(focus: .ownership)
+        let model = AppModel(service: service)
+
+        await model.startTraining()
+
+        XCTAssertEqual(model.homeSnapshot.activeSession?.id, activeSession.id)
+        XCTAssertEqual(model.currentSession?.id, activeSession.id)
+        XCTAssertEqual(model.navigationPath, [.trainingSession(sessionID: activeSession.id)])
+        XCTAssertNil(model.activeSheet)
+    }
+
+    @MainActor
+    func testDeleteAllDataClearsTransientAppState() async throws {
+        let service = MockCoachService(processingDelayNanoseconds: 0)
+        _ = try await service.bootstrap()
+        _ = try await service.uploadResume(fileName: "alex_pm_resume.pdf")
+        let activeSession = try await service.createTrainingSession(focus: .ownership)
+        let model = AppModel(service: service)
+        model.currentSession = activeSession
+        model.activeSheet = .apiError("Before delete")
+        model.history = [PracticeSummary(id: "session_1", title: "Practice", subtitle: "Ownership", status: "Complete")]
+        model.navigationPath = [.trainingSession(sessionID: activeSession.id), .settings]
+        model.selectedFocus = .ambiguity
+
+        await model.deleteAllData()
+
+        XCTAssertNil(model.currentSession)
+        XCTAssertNil(model.activeSheet)
+        XCTAssertEqual(model.history, [])
+        XCTAssertEqual(model.navigationPath, [])
+        XCTAssertEqual(model.selectedFocus, .ownership)
+    }
+
+    @MainActor
+    func testBuySprintPackRefreshesCreditsAndDismissesSheet() async {
+        let service = MockCoachService(processingDelayNanoseconds: 0)
+        let model = AppModel(service: service)
+        await model.bootstrap()
+        model.activeSheet = .paywall
+
+        await model.buySprintPack()
+
+        XCTAssertNil(model.activeSheet)
+        XCTAssertEqual(model.homeSnapshot.credits.availableSessionCredits, 7)
+    }
+}

@@ -28,13 +28,20 @@ enum AppSheet: Identifiable, Equatable {
     }
 }
 
-enum DeleteIntent: String, Identifiable, Equatable {
+enum DeleteIntent: Identifiable, Equatable {
     case resumeOnly
     case resumeAndTraining
-    case practiceRound
+    case practiceRound(sessionID: String)
     case allData
 
-    var id: String { rawValue }
+    var id: String {
+        switch self {
+        case .resumeOnly: "resumeOnly"
+        case .resumeAndTraining: "resumeAndTraining"
+        case .practiceRound(let sessionID): "practiceRound-\(sessionID)"
+        case .allData: "allData"
+        }
+    }
 }
 
 enum TrainingScreenState: Equatable {
@@ -44,6 +51,7 @@ enum TrainingScreenState: Equatable {
     case feedback
     case redo
     case completed
+    case abandoned
     case failed
 
     static func route(for session: TrainingSession) -> TrainingScreenState {
@@ -58,7 +66,9 @@ enum TrainingScreenState: Equatable {
             return .feedback
         case .completed:
             return .completed
-        case .abandoned, .failed:
+        case .abandoned:
+            return .abandoned
+        case .failed:
             return .failed
         }
     }
