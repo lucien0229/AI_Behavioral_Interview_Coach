@@ -21,11 +21,7 @@ struct HomeRootView: View {
         case .resumeManage:
             ResumeManageView()
         case .trainingSession(let sessionID):
-            FeaturePlaceholderRouteView(
-                title: "Training Session",
-                message: "Task 8 training session is not implemented yet.",
-                detail: "Session ID: \(sessionID)"
-            )
+            TrainingSessionView(sessionID: sessionID)
         case .historyList:
             FeaturePlaceholderRouteView(
                 title: "History",
