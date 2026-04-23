@@ -10,6 +10,8 @@ struct HomeRootView: View {
             HomeView()
                 .navigationDestination(for: AppRoute.self, destination: destinationView)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(CoachColor.canvas.ignoresSafeArea())
         .sheet(item: $appModel.activeSheet, content: sheetView)
     }
 
@@ -362,12 +364,14 @@ private struct HomeHeaderView: View {
                     .font(.system(size: 27, weight: .bold))
                     .foregroundStyle(CoachColor.text)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.8)
 
                 Text(subtitle)
                     .font(.system(size: 14, weight: .regular))
                     .foregroundStyle(CoachColor.text48)
                     .lineLimit(2)
             }
+            .layoutPriority(1)
 
             Spacer(minLength: 0)
 

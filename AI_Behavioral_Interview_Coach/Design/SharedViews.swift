@@ -242,6 +242,7 @@ struct CoachScreen<Content: View>: View {
                     .padding(.bottom, 40)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

@@ -11,6 +11,8 @@ struct LaunchView: View {
                 HomeRootView()
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background((appModel.isBootstrapping ? Color.black : CoachColor.canvas).ignoresSafeArea())
         .task {
             guard appModel.isBootstrapping else { return }
             await appModel.bootstrap()
