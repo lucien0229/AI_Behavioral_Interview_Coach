@@ -110,6 +110,7 @@ struct TrainingSession: Identifiable, Equatable {
     var feedback: FeedbackPayload?
     var redoReview: RedoReviewPayload?
     var completionReason: CompletionReason?
+    var completedAt: Date?
 
     var isTerminal: Bool {
         status == .completed || status == .abandoned || status == .failed
@@ -124,7 +125,8 @@ struct TrainingSession: Identifiable, Equatable {
             followupText: status == .waitingFollowupAnswer ? "What specific decision did you personally make at that point?" : nil,
             feedback: status == .redoAvailable || status == .completed ? .fixture : nil,
             redoReview: nil,
-            completionReason: nil
+            completionReason: nil,
+            completedAt: nil
         )
     }
 }
@@ -148,9 +150,20 @@ extension FeedbackPayload {
 
 struct PracticeSummary: Identifiable, Equatable {
     let id: String
-    let title: String
-    let subtitle: String
-    let status: String
+    let questionText: String
+    let focusLabel: String
+    let completionDateText: String
+    let redoStatusText: String
+    let finalAssessmentSummary: String
+
+    var title: String { questionText }
+    var subtitle: String {
+        "\(completionDateText) · \(focusLabel) · \(finalAssessmentSummary)"
+    }
+    var status: String { redoStatusText }
+    var metadataLine: String {
+        "\(completionDateText) · \(focusLabel) · \(redoStatusText) · \(finalAssessmentSummary)"
+    }
 }
 
 struct HomeSnapshot: Equatable {

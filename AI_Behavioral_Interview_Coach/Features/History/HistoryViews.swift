@@ -201,12 +201,12 @@ private struct HistorySummaryRow: View {
                 .frame(width: 20, height: 20)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text(summary.title)
+                Text(summary.questionText)
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(CoachColor.text)
-                    .lineLimit(1)
+                    .lineLimit(2)
 
-                Text(summary.subtitle)
+                Text(summary.metadataLine)
                     .font(.system(size: 12, weight: .regular))
                     .foregroundStyle(CoachColor.text48)
                     .lineLimit(2)
@@ -214,7 +214,10 @@ private struct HistorySummaryRow: View {
 
             Spacer(minLength: 12)
 
-            CoachTag(title: historyStatusText(for: summary.status))
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(CoachColor.text48)
+                .padding(.top, 3)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)

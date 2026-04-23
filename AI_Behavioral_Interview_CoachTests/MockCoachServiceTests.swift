@@ -28,7 +28,14 @@ final class MockCoachServiceTests: XCTestCase {
     }
 
     func testHappyPathConsumesOneCreditAndCreatesHistory() async throws {
-        let service = MockCoachService(processingDelayNanoseconds: 0)
+        var completionDate = DateComponents()
+        completionDate.calendar = Calendar(identifier: .gregorian)
+        completionDate.timeZone = TimeZone(secondsFromGMT: 0)
+        completionDate.year = 2026
+        completionDate.month = 4
+        completionDate.day = 21
+        let fixedCompletionDate = try XCTUnwrap(completionDate.date)
+        let service = MockCoachService(processingDelayNanoseconds: 0, now: { fixedCompletionDate })
         _ = try await service.bootstrap()
         _ = try await service.uploadResume(fileName: "alex_pm_resume.pdf")
         var session = try await service.createTrainingSession(focus: .ownership)
@@ -50,6 +57,13 @@ final class MockCoachServiceTests: XCTestCase {
 
         let history = try await service.history()
         XCTAssertEqual(history.count, 1)
+        let summary = try XCTUnwrap(history.first)
+        XCTAssertEqual(summary.questionText, "Tell me about a time you personally took ownership of an ambiguous problem and drove it to resolution.")
+        XCTAssertEqual(summary.focusLabel, "Ownership")
+        XCTAssertEqual(summary.completionDateText, "Apr 21")
+        XCTAssertEqual(summary.redoStatusText, "Redo skipped")
+        XCTAssertEqual(summary.finalAssessmentSummary, "Original feedback saved")
+        XCTAssertEqual(summary.metadataLine, "Apr 21 · Ownership · Redo skipped · Original feedback saved")
     }
 
     func testMockPurchaseAddsCredits() async throws {

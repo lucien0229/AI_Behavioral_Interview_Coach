@@ -31,6 +31,7 @@ enum AppSheet: Identifiable, Equatable {
 enum DeleteIntent: Identifiable, Equatable {
     case resumeOnly
     case resumeAndTraining
+    case cancelResumeProcessing
     case practiceRound(sessionID: String)
     case allData
 
@@ -38,6 +39,7 @@ enum DeleteIntent: Identifiable, Equatable {
         switch self {
         case .resumeOnly: "resumeOnly"
         case .resumeAndTraining: "resumeAndTraining"
+        case .cancelResumeProcessing: "cancelResumeProcessing"
         case .practiceRound(let sessionID): "practiceRound-\(sessionID)"
         case .allData: "allData"
         }

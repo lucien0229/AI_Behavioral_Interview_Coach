@@ -2,6 +2,7 @@ import Foundation
 
 actor MockCoachService: CoachService {
     private let processingDelayNanoseconds: UInt64
+    private let now: @Sendable () -> Date
     private var bootstrapContext: BootstrapContext?
     private var activeResume: ActiveResume?
     private var activeResumeUploadID: UUID?
@@ -9,8 +10,12 @@ actor MockCoachService: CoachService {
     private var activeSession: TrainingSession?
     private var completedSessions: [TrainingSession] = []
 
-    init(processingDelayNanoseconds: UInt64 = 350_000_000) {
+    init(
+        processingDelayNanoseconds: UInt64 = 350_000_000,
+        now: @escaping @Sendable () -> Date = { Date() }
+    ) {
         self.processingDelayNanoseconds = processingDelayNanoseconds
+        self.now = now
     }
 
     func bootstrap() async throws -> BootstrapContext {
@@ -97,7 +102,8 @@ actor MockCoachService: CoachService {
             followupText: nil,
             feedback: nil,
             redoReview: nil,
-            completionReason: nil
+            completionReason: nil,
+            completedAt: nil
         )
         activeSession = session
         do {
@@ -206,7 +212,7 @@ actor MockCoachService: CoachService {
             session.status = .completed
             session.redoReview = mockRedoReview
             session.completionReason = .redoReviewGenerated
-            completeActiveSession(session)
+            session = completeActiveSession(session)
             return session
         } catch is CancellationError {
             revertCancelledRedo(sessionID: sessionID)
@@ -218,8 +224,7 @@ actor MockCoachService: CoachService {
         var session = try requireActiveSession(id: sessionID, status: .redoAvailable)
         session.status = .completed
         session.completionReason = .redoSkipped
-        completeActiveSession(session)
-        return session
+        return completeActiveSession(session)
     }
 
     func history() async throws -> [PracticeSummary] {
@@ -303,7 +308,7 @@ private extension MockCoachService {
 
     var mockRedoReview: RedoReviewPayload {
         RedoReviewPayload(
-            status: .improved,
+            status: .partiallyImproved,
             headline: "Clearer ownership signal.",
             stillMissing: "The result would be stronger with one concrete metric.",
             nextAttempt: "Keep the same structure and add the before-and-after impact."
@@ -438,9 +443,12 @@ private extension MockCoachService {
         }
     }
 
-    func completeActiveSession(_ session: TrainingSession) {
+    func completeActiveSession(_ session: TrainingSession) -> TrainingSession {
+        var completedSession = session
+        completedSession.completedAt = now()
         activeSession = nil
-        completedSessions.insert(session, at: 0)
+        completedSessions.insert(completedSession, at: 0)
+        return completedSession
     }
 
     func homeSnapshot() -> HomeSnapshot {
@@ -489,9 +497,59 @@ private extension MockCoachService {
     func practiceSummary(for session: TrainingSession) -> PracticeSummary {
         PracticeSummary(
             id: session.id,
-            title: session.focus.displayName,
-            subtitle: session.questionText,
-            status: session.completionReason?.rawValue ?? session.status.rawValue
+            questionText: session.questionText,
+            focusLabel: session.focus.displayName,
+            completionDateText: completionDateText(for: session.completedAt),
+            redoStatusText: redoStatusText(for: session),
+            finalAssessmentSummary: finalAssessmentSummary(for: session)
         )
+    }
+
+    func completionDateText(for date: Date?) -> String {
+        guard let date else {
+            return "Date unavailable"
+        }
+
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "MMM d"
+        return formatter.string(from: date)
+    }
+
+    func redoStatusText(for session: TrainingSession) -> String {
+        switch session.completionReason {
+        case .redoReviewGenerated:
+            return "Redo reviewed"
+        case .redoSkipped:
+            return "Redo skipped"
+        case .redoReviewUnavailable:
+            return "Redo unavailable"
+        case nil:
+            return session.status.rawValue.replacingOccurrences(of: "_", with: " ").capitalized
+        }
+    }
+
+    func finalAssessmentSummary(for session: TrainingSession) -> String {
+        if let redoReview = session.redoReview {
+            switch redoReview.status {
+            case .improved:
+                return "Improved"
+            case .partiallyImproved:
+                return "Partially improved"
+            case .notImproved:
+                return "Not improved"
+            case .regressed:
+                return "Regressed"
+            }
+        }
+
+        switch session.completionReason {
+        case .redoSkipped:
+            return "Original feedback saved"
+        case .redoReviewUnavailable:
+            return "Original feedback saved"
+        case .redoReviewGenerated, nil:
+            return session.feedback?.strongestSignal ?? "Feedback saved"
+        }
     }
 }

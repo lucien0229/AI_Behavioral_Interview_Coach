@@ -162,6 +162,10 @@ struct DeleteConfirmationSheet: View {
                     performResumeDelete(mode: .resumeAndLinkedTraining)
                 }
             }
+        case .cancelResumeProcessing:
+            CoachPrimaryButton(title: "Cancel resume processing", isLoading: isPending) {
+                performResumeDelete(mode: .resumeOnlyRedactedHistory)
+            }
         case .practiceRound(let sessionID):
             CoachPrimaryButton(title: "Delete practice round", isLoading: isPending) {
                 guard !isPending else { return }
@@ -187,6 +191,8 @@ struct DeleteConfirmationSheet: View {
         switch intent {
         case .resumeOnly, .resumeAndTraining:
             return "Delete resume"
+        case .cancelResumeProcessing:
+            return "Cancel resume processing?"
         case .practiceRound:
             return "Delete this practice round?"
         case .allData:
@@ -197,11 +203,13 @@ struct DeleteConfirmationSheet: View {
     private var message: String {
         switch intent {
         case .resumeOnly, .resumeAndTraining:
-            return "Your original resume will be removed. Choose what happens to linked practice content."
+            return "Your original resume will be removed. Choose what happens to linked practice content. Purchase and credit records are not shown as training content."
+        case .cancelResumeProcessing:
+            return "This stops using the current resume for practice. You can upload another resume afterward. Any partial resume data already derived from this file will be cleared."
         case .practiceRound:
-            return "This removes the visible practice content and related audio."
+            return "This removes the visible practice content and related audio. Purchase and credit records are not removed."
         case .allData:
-            return "This deletes your resume, audio, transcripts, feedback, and history."
+            return "This deletes your resume, audio, transcripts, feedback, and history. Your local app profile will be reset."
         }
     }
 
@@ -257,7 +265,7 @@ private struct SheetHandle: View {
     var body: some View {
         RoundedRectangle(cornerRadius: 2.5, style: .continuous)
             .fill(CoachColor.line)
-            .frame(width: 146, height: 5)
+            .frame(width: 79, height: 5)
             .frame(maxWidth: .infinity)
             .padding(.top, 4)
     }

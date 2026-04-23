@@ -42,7 +42,16 @@ final class AppModelTests: XCTestCase {
         let model = AppModel(service: service)
         model.currentSession = activeSession
         model.activeSheet = .apiError("Before delete")
-        model.history = [PracticeSummary(id: "session_1", title: "Practice", subtitle: "Ownership", status: "Complete")]
+        model.history = [
+            PracticeSummary(
+                id: "session_1",
+                questionText: "Practice",
+                focusLabel: "Ownership",
+                completionDateText: "Apr 21",
+                redoStatusText: "Complete",
+                finalAssessmentSummary: "Saved"
+            )
+        ]
         model.navigationPath = [.trainingSession(sessionID: activeSession.id), .settings]
         model.selectedFocus = .ambiguity
 
@@ -66,5 +75,26 @@ final class AppModelTests: XCTestCase {
 
         XCTAssertNil(model.activeSheet)
         XCTAssertEqual(model.homeSnapshot.credits.availableSessionCredits, 7)
+    }
+
+    @MainActor
+    func testDeletePracticeRoutesBackToHistoryList() async throws {
+        let service = MockCoachService(processingDelayNanoseconds: 0)
+        _ = try await service.bootstrap()
+        _ = try await service.uploadResume(fileName: "alex_pm_resume.pdf")
+        var session = try await service.createTrainingSession(focus: .ownership)
+        session = try await service.submitFirstAnswer(sessionID: session.id)
+        session = try await service.submitFollowupAnswer(sessionID: session.id)
+        session = try await service.skipRedo(sessionID: session.id)
+
+        let model = AppModel(service: service)
+        model.currentSession = session
+        model.navigationPath = [.historyDetail(sessionID: session.id)]
+
+        await model.deletePractice(id: session.id)
+
+        XCTAssertEqual(model.navigationPath, [.historyList])
+        XCTAssertNil(model.currentSession)
+        XCTAssertNil(model.activeSheet)
     }
 }

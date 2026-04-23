@@ -193,9 +193,7 @@ final class AppModel {
                 currentSession = nil
             }
 
-            if navigationPath.last == .historyDetail(sessionID: id) {
-                _ = navigationPath.popLast()
-            }
+            navigationPath = [.historyList]
 
             activeSheet = nil
         } catch {

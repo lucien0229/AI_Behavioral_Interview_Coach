@@ -215,7 +215,7 @@ private struct HomeResumeProcessingView: View {
                 }
 
                 CoachSecondaryButton(title: "Cancel resume") {
-                    appModel.activeSheet = .deleteConfirmation(.resumeOnly)
+                    appModel.activeSheet = .deleteConfirmation(.cancelResumeProcessing)
                 }
 
                 HomeRowList(items: [
@@ -256,7 +256,7 @@ private func homeHistoryRows(
             .init(
                 systemImage: "questionmark.circle",
                 title: "Last practice",
-                detail: "\(summary.subtitle) · \(summary.status)",
+                detail: summary.metadataLine,
                 showsChevron: true
             ) {
                 historyDetailAction(summary.id)
@@ -611,7 +611,7 @@ private struct SheetHandle: View {
     var body: some View {
         RoundedRectangle(cornerRadius: 2.5, style: .continuous)
             .fill(CoachColor.line)
-            .frame(width: 146, height: 5)
+            .frame(width: 79, height: 5)
             .frame(maxWidth: .infinity)
             .padding(.top, 4)
     }
