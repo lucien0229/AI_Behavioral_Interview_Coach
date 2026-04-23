@@ -20,6 +20,17 @@ enum TrainingFocus: String, CaseIterable, Identifiable, Codable, Equatable {
         case .ambiguity: "Ambiguity"
         }
     }
+
+    var historyTitle: String {
+        switch self {
+        case .ownership: "Ownership under ambiguity"
+        case .prioritization: "Prioritization decision"
+        case .crossFunctionalInfluence: "Cross-functional influence"
+        case .conflictHandling: "Conflict with a partner"
+        case .failureLearning: "Failed launch learning"
+        case .ambiguity: "Ambiguous roadmap call"
+        }
+    }
 }
 
 enum VisibleAssessmentStatus: String, Codable, Equatable {
@@ -150,13 +161,13 @@ extension FeedbackPayload {
 
 struct PracticeSummary: Identifiable, Equatable {
     let id: String
+    let title: String
     let questionText: String
     let focusLabel: String
     let completionDateText: String
     let redoStatusText: String
     let finalAssessmentSummary: String
 
-    var title: String { questionText }
     var subtitle: String {
         "\(completionDateText) · \(focusLabel) · \(finalAssessmentSummary)"
     }

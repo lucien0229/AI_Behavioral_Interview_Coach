@@ -14,12 +14,6 @@ struct SettingsView: View {
                         .font(.system(size: 34, weight: .bold))
                         .foregroundStyle(CoachColor.text)
                         .fixedSize(horizontal: false, vertical: true)
-
-                    Text("Manage practice data, billing restore, and deletion.")
-                        .font(.system(size: 16, weight: .regular))
-                        .foregroundStyle(CoachColor.text80)
-                        .lineSpacing(2)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 section(title: "Practice data") {
@@ -65,12 +59,9 @@ struct SettingsView: View {
                 }
 
                 section(title: "App version") {
-                    CoachRow(
-                        systemImage: "info.circle",
-                        title: "App version",
-                        detail: appVersionText(),
-                        showsChevron: false
-                    )
+                    Text(appVersionText())
+                        .font(.system(size: 15, weight: .regular))
+                        .foregroundStyle(CoachColor.text48)
                 }
             }
         }
@@ -116,32 +107,30 @@ struct PrivacyNoticeView: View {
                         .font(.system(size: 34, weight: .bold))
                         .foregroundStyle(CoachColor.text)
                         .fixedSize(horizontal: false, vertical: true)
-
-                    Text("Short, practical guidance on what this version uses and why.")
-                        .font(.system(size: 16, weight: .regular))
-                        .foregroundStyle(CoachColor.text80)
-                        .lineSpacing(2)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 privacySection(
                     title: "What we use",
-                    body: "Resume file, practice audio, transcripts, AI feedback, and purchase entitlement status."
+                    body: "Resume file, practice audio, transcripts, AI feedback, and purchase entitlement status.",
+                    showsDivider: true
                 )
 
                 privacySection(
                     title: "Why we use it",
-                    body: "To generate resume-based questions, transcribe spoken answers, provide feedback and redo review, and manage credits and restore."
+                    body: "To create resume-based practice and manage credits.",
+                    showsDivider: true
                 )
 
                 privacySection(
                     title: "What we do not do in v1",
-                    body: "No public profile, no resume rewriting product, and no required account signup before practice."
+                    body: "No public profile, no resume rewriting product, and no required account signup before practice.",
+                    showsDivider: true
                 )
 
                 privacySection(
                     title: "Your controls",
-                    body: "Delete the active resume, delete a practice round, or delete all app data."
+                    body: "Delete resume, delete a practice round, or delete all app data.",
+                    showsDivider: false
                 )
 
                 CoachPrimaryButton(title: "Manage data") {
@@ -152,7 +141,7 @@ struct PrivacyNoticeView: View {
     }
 
     @ViewBuilder
-    private func privacySection(title: String, body: String) -> some View {
+    private func privacySection(title: String, body: String, showsDivider: Bool) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             CoachSectionTitle(title: title)
             Text(body)
@@ -160,6 +149,12 @@ struct PrivacyNoticeView: View {
                 .foregroundStyle(CoachColor.text)
                 .lineSpacing(3)
                 .fixedSize(horizontal: false, vertical: true)
+            if showsDivider {
+                Rectangle()
+                    .fill(CoachColor.line)
+                    .frame(height: 1)
+                    .padding(.top, 14)
+            }
         }
     }
 }
@@ -172,5 +167,5 @@ private func appVersionText() -> String {
     if let build, !build.isEmpty {
         return "\(version) (\(build))"
     }
-    return version
+    return "\(version) validation build"
 }

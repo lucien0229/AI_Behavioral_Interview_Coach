@@ -72,7 +72,8 @@ struct PaywallSheet: View {
 
     private var creditSummary: String {
         let count = max(appModel.homeSnapshot.credits.availableSessionCredits, 0)
-        return count == 1 ? "1 practice credit available." : "\(count) practice credits available."
+        let noun = count == 1 ? "credit" : "credits"
+        return "You have \(count) practice \(noun)."
     }
 
     @ViewBuilder
@@ -95,7 +96,7 @@ struct PaywallSheet: View {
             }
         }
         .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: 132, alignment: .topLeading)
         .background(CoachColor.surfaceMuted)
         .overlay {
             RoundedRectangle(cornerRadius: CoachRadius.standard, style: .continuous)
@@ -147,7 +148,7 @@ struct DeleteConfirmationSheet: View {
                 SheetChoiceButton(
                     title: "Delete resume only",
                     subtitle: "Keep redacted history summaries",
-                    systemImage: "doc",
+                    systemImage: "file-x",
                     isPending: isPending
                 ) {
                     performResumeDelete(mode: .resumeOnlyRedactedHistory)
@@ -156,7 +157,7 @@ struct DeleteConfirmationSheet: View {
                 SheetChoiceButton(
                     title: "Delete resume and linked training",
                     subtitle: "Remove related practice content and audio",
-                    systemImage: "trash",
+                    systemImage: "trash-2",
                     isPending: isPending
                 ) {
                     performResumeDelete(mode: .resumeAndLinkedTraining)
@@ -203,7 +204,7 @@ struct DeleteConfirmationSheet: View {
     private var message: String {
         switch intent {
         case .resumeOnly, .resumeAndTraining:
-            return "Your original resume will be removed. Choose what happens to linked practice content. Purchase and credit records are not shown as training content."
+            return "Your original resume will be removed. Choose what happens to linked practice content."
         case .cancelResumeProcessing:
             return "This stops using the current resume for practice. You can upload another resume afterward. Any partial resume data already derived from this file will be cleared."
         case .practiceRound:
@@ -278,10 +279,21 @@ private struct SheetChoiceButton: View {
     let isPending: Bool
     let action: () -> Void
 
+    private var resolvedSystemImage: String {
+        switch systemImage {
+        case "file-x":
+            return "doc.badge.xmark"
+        case "trash-2":
+            return "trash"
+        default:
+            return systemImage
+        }
+    }
+
     var body: some View {
         Button(action: action) {
             HStack(alignment: .top, spacing: 12) {
-                Image(systemName: systemImage)
+                Image(systemName: resolvedSystemImage)
                     .font(.system(size: 19, weight: .regular))
                     .foregroundStyle(CoachColor.text48)
                     .frame(width: 20, height: 20)

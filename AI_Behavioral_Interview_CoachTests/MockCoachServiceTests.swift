@@ -58,6 +58,7 @@ final class MockCoachServiceTests: XCTestCase {
         let history = try await service.history()
         XCTAssertEqual(history.count, 1)
         let summary = try XCTUnwrap(history.first)
+        XCTAssertEqual(summary.title, "Ownership under ambiguity")
         XCTAssertEqual(summary.questionText, "Tell me about a time you personally took ownership of an ambiguous problem and drove it to resolution.")
         XCTAssertEqual(summary.focusLabel, "Ownership")
         XCTAssertEqual(summary.completionDateText, "Apr 21")

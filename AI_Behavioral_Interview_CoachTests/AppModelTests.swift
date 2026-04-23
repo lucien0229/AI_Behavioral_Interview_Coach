@@ -45,6 +45,7 @@ final class AppModelTests: XCTestCase {
         model.history = [
             PracticeSummary(
                 id: "session_1",
+                title: "Practice",
                 questionText: "Practice",
                 focusLabel: "Ownership",
                 completionDateText: "Apr 21",

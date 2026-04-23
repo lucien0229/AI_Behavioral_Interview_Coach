@@ -115,18 +115,18 @@ struct HistoryDetailView: View {
 
     @ViewBuilder
     private func detailContent(for session: TrainingSession) -> some View {
-        let statusText = historyStatusText(for: session)
+        let metadataText = historyMetadataLine(for: session)
         let completionText = completionReasonText(for: session)
 
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 8) {
-                Text(session.focus.displayName)
-                    .font(.system(size: 34, weight: .bold))
+                Text(session.focus.historyTitle)
+                    .font(.system(size: 27, weight: .bold))
                     .foregroundStyle(CoachColor.text)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Text(statusText)
-                    .font(.system(size: 14, weight: .regular))
+                Text(metadataText)
+                    .font(.system(size: 13, weight: .regular))
                     .foregroundStyle(CoachColor.text48)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -201,12 +201,12 @@ private struct HistorySummaryRow: View {
                 .frame(width: 20, height: 20)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text(summary.questionText)
+                Text(summary.title)
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(CoachColor.text)
-                    .lineLimit(2)
+                    .lineLimit(1)
 
-                Text(summary.metadataLine)
+                Text(summary.subtitle)
                     .font(.system(size: 12, weight: .regular))
                     .foregroundStyle(CoachColor.text48)
                     .lineLimit(2)
@@ -330,14 +330,14 @@ struct RouteNavBar: View {
                 dismiss()
             } label: {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.system(size: 24, weight: .semibold))
                     .foregroundStyle(CoachColor.text)
                     .frame(width: 28, height: 28)
             }
             .buttonStyle(.plain)
 
             Text(title)
-                .font(.system(size: 24, weight: .semibold))
+                .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(CoachColor.text)
 
             Spacer(minLength: 0)
@@ -354,6 +354,43 @@ private func historyStatusText(for session: TrainingSession) -> String {
         return historyStatusText(for: session.completionReason?.rawValue ?? session.status.rawValue)
     }
     return historyStatusText(for: session.status.rawValue)
+}
+
+private func historyMetadataLine(for session: TrainingSession) -> String {
+    [
+        completionDateText(for: session.completedAt),
+        session.focus.displayName,
+        finalAssessmentSummary(for: session)
+    ]
+    .joined(separator: " · ")
+}
+
+private func completionDateText(for date: Date?) -> String {
+    guard let date else {
+        return "Date unavailable"
+    }
+
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.dateFormat = "MMM d"
+    return formatter.string(from: date)
+}
+
+private func finalAssessmentSummary(for session: TrainingSession) -> String {
+    if let redoReview = session.redoReview {
+        switch redoReview.status {
+        case .improved:
+            return "Improved"
+        case .partiallyImproved:
+            return "Partially improved"
+        case .notImproved:
+            return "Not improved"
+        case .regressed:
+            return "Regressed"
+        }
+    }
+
+    return historyStatusText(for: session)
 }
 
 private func historyStatusText(for rawStatus: String) -> String {

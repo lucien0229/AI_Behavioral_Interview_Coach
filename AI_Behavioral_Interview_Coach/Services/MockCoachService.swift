@@ -497,6 +497,7 @@ private extension MockCoachService {
     func practiceSummary(for session: TrainingSession) -> PracticeSummary {
         PracticeSummary(
             id: session.id,
+            title: session.focus.historyTitle,
             questionText: session.questionText,
             focusLabel: session.focus.displayName,
             completionDateText: completionDateText(for: session.completedAt),
