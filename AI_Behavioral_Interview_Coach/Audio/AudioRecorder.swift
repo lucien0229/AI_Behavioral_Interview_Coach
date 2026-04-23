@@ -278,14 +278,18 @@ final class AudioRecorder {
         }
 
         func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+            let playbackToken = token
+            let playbackURL = url
             Task { @MainActor [weak owner] in
-                owner?.handlePlaybackFinished(token: token, url: url, successfully: flag)
+                owner?.handlePlaybackFinished(token: playbackToken, url: playbackURL, successfully: flag)
             }
         }
 
         func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
+            let playbackToken = token
+            let playbackURL = url
             Task { @MainActor [weak owner] in
-                owner?.handlePlaybackFinished(token: token, url: url, successfully: false)
+                owner?.handlePlaybackFinished(token: playbackToken, url: playbackURL, successfully: false)
             }
         }
     }

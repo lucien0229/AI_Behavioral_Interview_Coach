@@ -37,6 +37,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.wxm.AIBehavioralInterviewCoachTests
         GENERATE_INFOPLIST_FILE: "YES"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/AI Behavioral Interview Coach.app/AI Behavioral Interview Coach"
 schemes:
   AI_Behavioral_Interview_Coach:
     build:

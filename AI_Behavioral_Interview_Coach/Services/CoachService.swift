@@ -18,7 +18,7 @@ enum CoachServiceError: Error, Equatable {
     case mockFailure(message: String)
 }
 
-protocol CoachService {
+protocol CoachService: Sendable {
     func bootstrap() async throws -> BootstrapContext
     func home() async throws -> HomeSnapshot
     func uploadResume(fileName: String) async throws -> ActiveResume
