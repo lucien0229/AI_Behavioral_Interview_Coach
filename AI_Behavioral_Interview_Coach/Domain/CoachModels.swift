@@ -122,7 +122,7 @@ struct TrainingSession: Identifiable, Equatable {
             focus: .ownership,
             questionText: "Tell me about a time you had to make a high-stakes prioritization decision with incomplete information.",
             followupText: status == .waitingFollowupAnswer ? "What specific decision did you personally make at that point?" : nil,
-            feedback: status == .redoAvailable ? .fixture : nil,
+            feedback: status == .redoAvailable || status == .completed ? .fixture : nil,
             redoReview: nil,
             completionReason: nil
         )
@@ -137,10 +137,11 @@ extension FeedbackPayload {
         redoOutline: ["Set context in one sentence.", "State the decision you owned.", "Explain the tradeoff.", "Close with the result."],
         strongestSignal: "You picked a relevant example with real business context.",
         assessments: [
-            AssessmentLine(id: "answer_fit", label: "Answer fit", status: .strong),
-            AssessmentLine(id: "story", label: "Story", status: .strong),
+            AssessmentLine(id: "answered_question", label: "Answered the question", status: .strong),
+            AssessmentLine(id: "story_fit", label: "Story fit", status: .strong),
             AssessmentLine(id: "personal_ownership", label: "Personal ownership", status: .weak),
-            AssessmentLine(id: "evidence", label: "Evidence and outcome", status: .mixed)
+            AssessmentLine(id: "evidence_and_outcome", label: "Evidence and outcome", status: .mixed),
+            AssessmentLine(id: "holds_up_under_follow_up", label: "Holds up under follow-up", status: .weak)
         ]
     )
 }

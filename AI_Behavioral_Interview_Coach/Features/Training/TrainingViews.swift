@@ -57,7 +57,7 @@ struct TrainingSessionView: View {
             RecordingPromptView(
                 navTitle: "Follow-up",
                 focus: session.focus,
-                eyebrow: "What specific decision did you personally make at that point?",
+                eyebrow: "Based on your first answer,",
                 question: session.followupText ?? "What specific decision did you personally make at that point?",
                 recordingLabel: "Answer the follow-up",
                 submitTitle: "Submit answer",
@@ -130,6 +130,7 @@ struct TrainingSessionView: View {
 private struct TrainingProcessingView: View {
     let session: TrainingSession
     let onBackHome: () -> Void
+    @State private var showsLongWaitNotice = false
 
     var body: some View {
         CoachDarkScreen {
@@ -154,18 +155,37 @@ private struct TrainingProcessingView: View {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
 
-                TrainingNoticeCard(
-                    systemImage: "clock",
-                    message: "This is taking longer than usual. You can come back later.",
-                    isDark: true
-                )
+                if showsLongWaitNotice {
+                    TrainingNoticeCard(
+                        systemImage: "clock",
+                        message: "This is taking longer than usual. You can come back later.",
+                        isDark: true
+                    )
+                }
 
                 CoachSecondaryButton(title: "Back home", isDark: true, showsBorder: true) {
                     onBackHome()
                 }
             }
             .padding(.top, CoachSpace.lg)
+            .task(id: processingTaskID) {
+                showsLongWaitNotice = false
+
+                do {
+                    try await Task.sleep(nanoseconds: 90_000_000_000)
+                    guard !Task.isCancelled else {
+                        return
+                    }
+                    showsLongWaitNotice = true
+                } catch {
+                    return
+                }
+            }
         }
+    }
+
+    private var processingTaskID: String {
+        "\(session.id)-\(session.status.rawValue)"
     }
 }
 
@@ -686,24 +706,15 @@ private struct CompletedResultView: View {
                         title: "Next attempt",
                         message: redoReview.nextAttempt
                     )
-
-                    TrainingNoticeCard(
-                        systemImage: "check.circle",
-                        message: "Your original feedback is saved in History.",
-                        isDark: false
-                    )
                 } else {
                     TrainingNoticeCard(
                         systemImage: "info",
-                        message: "Redo review is unavailable. Your original feedback is saved.",
+                        message: redoReviewNoticeMessage,
                         isDark: false
                     )
-
-                    FeedbackSection(
-                        title: "Original feedback",
-                        message: originalFeedbackSummary(for: session.feedback)
-                    )
                 }
+
+                OriginalFeedbackBlock(feedback: feedback)
 
                 CoachPrimaryButton(title: "Start next") {
                     Task {
@@ -723,12 +734,19 @@ private struct CompletedResultView: View {
         await onStartNext()
     }
 
-    private func originalFeedbackSummary(for feedback: FeedbackPayload?) -> String {
-        guard let feedback else {
-            return "Biggest gap: Feedback is unavailable."
-        }
+    private var feedback: FeedbackPayload {
+        session.feedback ?? .fixture
+    }
 
-        return "Biggest gap: \(feedback.biggestGap) Redo priority: \(feedback.redoPriority)"
+    private var redoReviewNoticeMessage: String {
+        switch session.completionReason {
+        case .redoReviewUnavailable:
+            return "Redo review was unavailable. Your original feedback stays below."
+        case .redoSkipped:
+            return "You skipped the redo. Your original feedback stays below."
+        case .redoReviewGenerated, nil:
+            return "Your original feedback stays below."
+        }
     }
 }
 
@@ -1029,6 +1047,42 @@ private struct FeedbackSection: View {
     }
 }
 
+private struct OriginalFeedbackBlock: View {
+    let feedback: FeedbackPayload
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoachSpace.lg) {
+            Text("Original feedback")
+                .font(.coachSectionTitle)
+                .foregroundStyle(CoachColor.text48)
+
+            FeedbackSection(
+                title: "Biggest gap",
+                message: feedback.biggestGap
+            )
+
+            FeedbackSection(
+                title: "Why it matters",
+                message: feedback.whyItMatters
+            )
+
+            FeedbackSection(
+                title: "Redo priority",
+                message: feedback.redoPriority
+            )
+
+            FeedbackOutlineSection(items: feedback.redoOutline)
+
+            FeedbackSection(
+                title: "Strongest signal",
+                message: feedback.strongestSignal
+            )
+
+            AssessmentSection(assessments: feedback.assessments)
+        }
+    }
+}
+
 private struct FeedbackOutlineSection: View {
     let items: [String]
 
@@ -1157,19 +1211,19 @@ private func processingTitle(for status: TrainingSessionStatus) -> String {
     case .questionGenerating:
         return "Preparing your personalized question"
     case .firstAnswerProcessing:
-        return "Checking your first answer"
+        return "Processing your answer"
     case .followupGenerating:
         return "Preparing your follow-up"
     case .waitingFollowupAnswer:
         return "Preparing your follow-up"
     case .followupAnswerProcessing:
-        return "Checking your follow-up answer"
+        return "Processing your follow-up answer"
     case .feedbackGenerating:
         return "Building your feedback"
     case .redoProcessing:
-        return "Reviewing your redo"
+        return "Processing your redo"
     case .redoEvaluating:
-        return "Evaluating your redo"
+        return "Reviewing your redo"
     case .waitingFirstAnswer, .redoAvailable, .completed, .abandoned, .failed:
         return "Preparing your practice"
     }
@@ -1180,17 +1234,17 @@ private func processingSubtitle(for status: TrainingSessionStatus) -> String {
     case .questionGenerating:
         return "We're using your resume to choose a relevant prompt."
     case .firstAnswerProcessing:
-        return "We're reading your answer and shaping the follow-up."
+        return "We're uploading and transcribing your response."
     case .followupGenerating, .waitingFollowupAnswer:
-        return "We're shaping the next question now."
+        return "We're finding the most useful gap to probe."
     case .followupAnswerProcessing:
-        return "We're turning your follow-up into feedback."
+        return "We're checking the audio before feedback."
     case .feedbackGenerating:
-        return "We're putting your feedback together."
+        return "We're turning your answers into a focused redo plan."
     case .redoProcessing:
-        return "We're checking the redo answer."
+        return "We're checking your second attempt."
     case .redoEvaluating:
-        return "We're comparing it against the original feedback."
+        return "We're comparing it with your first answer."
     case .waitingFirstAnswer, .redoAvailable, .completed, .abandoned, .failed:
         return "We're getting everything ready."
     }
