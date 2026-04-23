@@ -22,11 +22,11 @@ final class AudioRecorder {
 
     var permissionState: PermissionState = .unknown
     var recordingState: RecordingState = .idle
-    var elapsed: TimeInterval = 0
+    var elapsedSeconds: TimeInterval = 0
 
     var canSubmit: Bool {
         if case .recorded = recordingState {
-            return elapsed >= minimumDuration
+            return elapsedSeconds >= minimumDuration
         }
         return false
     }
@@ -66,20 +66,20 @@ final class AudioRecorder {
                 try? FileManager.default.removeItem(at: url)
                 deactivateAudioSession()
                 recordingState = .idle
-                elapsed = 0
+                elapsedSeconds = 0
                 return
             }
 
             currentRecordingURL = url
             self.recorder = recorder
-            elapsed = 0
+            elapsedSeconds = 0
             recordingState = .recording
             startRecordingTimer()
         } catch {
             try? FileManager.default.removeItem(at: url)
             recorder = nil
             currentRecordingURL = nil
-            elapsed = 0
+            elapsedSeconds = 0
             recordingState = .idle
             deactivateAudioSession()
         }
@@ -94,8 +94,8 @@ final class AudioRecorder {
         self.recorder = nil
         recorder?.stop()
 
-        let duration = max(elapsed, recorder?.currentTime ?? 0)
-        elapsed = duration
+        let duration = max(elapsedSeconds, recorder?.currentTime ?? 0)
+        elapsedSeconds = duration
 
         if let url = currentRecordingURL, FileManager.default.fileExists(atPath: url.path) {
             recordingState = .recorded(url)
@@ -178,7 +178,7 @@ final class AudioRecorder {
         }
 
         currentRecordingURL = nil
-        elapsed = 0
+        elapsedSeconds = 0
         recordingState = .idle
         deactivateAudioSession()
     }
@@ -206,7 +206,7 @@ final class AudioRecorder {
 
     private func updateElapsedTime() {
         guard case .recording = recordingState, let recorder else { return }
-        elapsed = recorder.currentTime
+        elapsedSeconds = recorder.currentTime
     }
 
     private func finishPlayback() {
@@ -218,7 +218,7 @@ final class AudioRecorder {
             recordingState = .recorded(url)
         } else {
             currentRecordingURL = nil
-            elapsed = 0
+            elapsedSeconds = 0
             recordingState = .idle
         }
 
