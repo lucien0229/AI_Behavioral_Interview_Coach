@@ -45,8 +45,12 @@ final class AppModel {
     func uploadResume(fileName: String) async {
         do {
             _ = try await service.uploadResume(fileName: fileName)
+            guard !Task.isCancelled else { return }
             homeSnapshot = try await service.home()
+            guard !Task.isCancelled else { return }
             navigationPath.append(.resumeManage)
+        } catch is CancellationError {
+            return
         } catch CoachServiceError.unsupportedFileType {
             activeSheet = .apiError("Only PDF or DOCX resumes are supported in this version.")
         } catch {
@@ -55,8 +59,16 @@ final class AppModel {
     }
 
     func startTraining() async {
+        await startTraining(focus: selectedFocus)
+    }
+
+    func startTrainingWithoutFocus() async {
+        await startTraining(focus: nil)
+    }
+
+    private func startTraining(focus: TrainingFocus?) async {
         do {
-            let session = try await service.createTrainingSession(focus: selectedFocus)
+            let session = try await service.createTrainingSession(focus: focus)
             currentSession = session
             navigationPath.append(.trainingSession(sessionID: session.id))
             homeSnapshot = try await service.home()

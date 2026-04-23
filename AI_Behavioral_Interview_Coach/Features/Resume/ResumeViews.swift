@@ -4,11 +4,15 @@ import UniformTypeIdentifiers
 struct ResumeUploadView: View {
     @Environment(AppModel.self) private var appModel
     @State private var isImporting = false
+    @State private var uploadTask: Task<Void, Never>?
 
-    private let importContentTypes: [UTType] = [
-        .pdf,
-        UTType(filenameExtension: "docx", conformingTo: .data)!
-    ]
+    private let importContentTypes: [UTType] = {
+        var contentTypes: [UTType] = [.pdf]
+        if let docxType = UTType(filenameExtension: "docx", conformingTo: .data) {
+            contentTypes.append(docxType)
+        }
+        return contentTypes
+    }()
 
     var body: some View {
         CoachLightScreen {
@@ -41,7 +45,8 @@ struct ResumeUploadView: View {
                     switch result {
                     case .success(let urls):
                         guard let fileURL = urls.first else { return }
-                        Task {
+                        uploadTask?.cancel()
+                        uploadTask = Task {
                             await appModel.uploadResume(fileName: fileURL.lastPathComponent)
                         }
                     case .failure:
@@ -59,6 +64,10 @@ struct ResumeUploadView: View {
                     appModel.navigationPath.append(.privacyNotice)
                 }
             }
+        }
+        .onDisappear {
+            uploadTask?.cancel()
+            uploadTask = nil
         }
     }
 }

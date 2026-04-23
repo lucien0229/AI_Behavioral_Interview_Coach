@@ -600,58 +600,58 @@ private struct FocusPickerSheet: View {
             }
 
             VStack(alignment: .leading, spacing: 16) {
-                HStack(spacing: 24) {
-                    FocusPickerChip(
-                        title: TrainingFocus.ownership.displayName,
-                        isSelected: appModel.selectedFocus == .ownership,
-                        width: 160
-                    ) {
-                        appModel.selectedFocus = .ownership
+                Grid(horizontalSpacing: 16, verticalSpacing: 16) {
+                    GridRow {
+                        FocusPickerChip(
+                            title: TrainingFocus.ownership.displayName,
+                            isSelected: appModel.selectedFocus == .ownership
+                        ) {
+                            appModel.selectedFocus = .ownership
+                        }
+                        FocusPickerChip(
+                            title: TrainingFocus.prioritization.displayName,
+                            isSelected: appModel.selectedFocus == .prioritization
+                        ) {
+                            appModel.selectedFocus = .prioritization
+                        }
                     }
-                    FocusPickerChip(
-                        title: TrainingFocus.prioritization.displayName,
-                        isSelected: appModel.selectedFocus == .prioritization,
-                        width: 160
-                    ) {
-                        appModel.selectedFocus = .prioritization
-                    }
-                }
 
-                FocusPickerChip(
-                    title: TrainingFocus.crossFunctionalInfluence.displayName,
-                    isSelected: appModel.selectedFocus == .crossFunctionalInfluence,
-                    width: 345
-                ) {
-                    appModel.selectedFocus = .crossFunctionalInfluence
-                }
+                    GridRow {
+                        FocusPickerChip(
+                            title: TrainingFocus.crossFunctionalInfluence.displayName,
+                            isSelected: appModel.selectedFocus == .crossFunctionalInfluence
+                        ) {
+                            appModel.selectedFocus = .crossFunctionalInfluence
+                        }
+                        .gridCellColumns(2)
+                    }
 
-                HStack(spacing: 24) {
-                    FocusPickerChip(
-                        title: TrainingFocus.conflictHandling.displayName,
-                        isSelected: appModel.selectedFocus == .conflictHandling,
-                        width: 160
-                    ) {
-                        appModel.selectedFocus = .conflictHandling
+                    GridRow {
+                        FocusPickerChip(
+                            title: TrainingFocus.conflictHandling.displayName,
+                            isSelected: appModel.selectedFocus == .conflictHandling
+                        ) {
+                            appModel.selectedFocus = .conflictHandling
+                        }
+                        FocusPickerChip(
+                            title: TrainingFocus.failureLearning.displayName,
+                            isSelected: appModel.selectedFocus == .failureLearning
+                        ) {
+                            appModel.selectedFocus = .failureLearning
+                        }
                     }
-                    FocusPickerChip(
-                        title: TrainingFocus.failureLearning.displayName,
-                        isSelected: appModel.selectedFocus == .failureLearning,
-                        width: 160
-                    ) {
-                        appModel.selectedFocus = .failureLearning
-                    }
-                }
 
-                HStack {
-                    FocusPickerChip(
-                        title: TrainingFocus.ambiguity.displayName,
-                        isSelected: appModel.selectedFocus == .ambiguity,
-                        width: 160
-                    ) {
-                        appModel.selectedFocus = .ambiguity
+                    GridRow {
+                        FocusPickerChip(
+                            title: TrainingFocus.ambiguity.displayName,
+                            isSelected: appModel.selectedFocus == .ambiguity
+                        ) {
+                            appModel.selectedFocus = .ambiguity
+                        }
+                        Color.clear
                     }
-                    Spacer(minLength: 0)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             CoachPrimaryButton(title: "Start training") {
@@ -660,9 +660,8 @@ private struct FocusPickerSheet: View {
             }
 
             CoachSecondaryButton(title: "Start without a focus") {
-                appModel.selectedFocus = .ownership
                 appModel.activeSheet = nil
-                Task { await appModel.startTraining() }
+                Task { await appModel.startTrainingWithoutFocus() }
             }
         }
         .padding(.horizontal, 24)
@@ -676,7 +675,6 @@ private struct FocusPickerSheet: View {
 private struct FocusPickerChip: View {
     let title: String
     let isSelected: Bool
-    var width: CGFloat? = nil
     let action: () -> Void
 
     var body: some View {
@@ -695,7 +693,7 @@ private struct FocusPickerChip: View {
                 .clipShape(RoundedRectangle(cornerRadius: CoachRadius.standard, style: .continuous))
         }
         .buttonStyle(.plain)
-        .frame(width: width)
+        .frame(maxWidth: .infinity)
     }
 
     private var backgroundColor: Color {

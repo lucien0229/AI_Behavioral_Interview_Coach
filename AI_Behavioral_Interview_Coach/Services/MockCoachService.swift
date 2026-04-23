@@ -74,7 +74,7 @@ actor MockCoachService: CoachService {
         return homeSnapshot()
     }
 
-    func createTrainingSession(focus: TrainingFocus) async throws -> TrainingSession {
+    func createTrainingSession(focus: TrainingFocus?) async throws -> TrainingSession {
         try requireBootstrap()
 
         guard activeSession == nil else {
@@ -87,11 +87,13 @@ actor MockCoachService: CoachService {
             throw CoachServiceError.noCredits
         }
 
+        let resolvedFocus = focus ?? .ownership
+
         let session = TrainingSession(
             id: "session_\(UUID().uuidString)",
             status: .questionGenerating,
-            focus: focus,
-            questionText: questionText(for: focus),
+            focus: resolvedFocus,
+            questionText: questionText(for: resolvedFocus),
             followupText: nil,
             feedback: nil,
             redoReview: nil,

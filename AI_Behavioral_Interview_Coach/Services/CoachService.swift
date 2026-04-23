@@ -23,7 +23,7 @@ protocol CoachService {
     func home() async throws -> HomeSnapshot
     func uploadResume(fileName: String) async throws -> ActiveResume
     func deleteResume(mode: DeleteResumeMode) async throws -> HomeSnapshot
-    func createTrainingSession(focus: TrainingFocus) async throws -> TrainingSession
+    func createTrainingSession(focus: TrainingFocus?) async throws -> TrainingSession
     func session(id: String) async throws -> TrainingSession
     func submitFirstAnswer(sessionID: String) async throws -> TrainingSession
     func submitFollowupAnswer(sessionID: String) async throws -> TrainingSession
