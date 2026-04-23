@@ -157,15 +157,63 @@ final class AppModel {
         }
     }
 
+    func restorePurchase() async {
+        do {
+            try await service.mockRestorePurchase()
+            activeSheet = nil
+            await refreshHome()
+        } catch {
+            activeSheet = .apiError("Purchase restore could not be completed.")
+        }
+    }
+
+    func deleteResume(mode: DeleteResumeMode) async {
+        do {
+            let nextHomeSnapshot = try await service.deleteResume(mode: mode)
+            homeSnapshot = nextHomeSnapshot
+            history = try await service.history()
+
+            if let currentSession, !currentSession.isTerminal {
+                self.currentSession = nextHomeSnapshot.activeSession
+            }
+
+            navigationPath.removeAll()
+            activeSheet = nil
+        } catch {
+            activeSheet = .apiError("We could not delete your resume.")
+        }
+    }
+
+    func deletePractice(id: String) async {
+        do {
+            history = try await service.deletePractice(id: id)
+            homeSnapshot = try await service.home()
+
+            if currentSession?.id == id {
+                currentSession = nil
+            }
+
+            if navigationPath.last == .historyDetail(sessionID: id) {
+                _ = navigationPath.popLast()
+            }
+
+            activeSheet = nil
+        } catch {
+            activeSheet = .apiError("We could not delete this practice round.")
+        }
+    }
+
     func deleteAllData() async {
         do {
             _ = try await service.deleteAllData()
             navigationPath.removeAll()
             currentSession = nil
-            activeSheet = nil
             history = []
             selectedFocus = nil
-            await refreshHome()
+            homeSnapshot = HomeSnapshot(activeResume: nil, activeSession: nil, credits: .initialFree, recentPractice: [])
+            activeSheet = nil
+            isBootstrapping = true
+            await bootstrap()
         } catch {
             activeSheet = .apiError("We could not delete your app data.")
         }

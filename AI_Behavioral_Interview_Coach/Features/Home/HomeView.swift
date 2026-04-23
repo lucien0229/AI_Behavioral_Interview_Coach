@@ -23,26 +23,13 @@ struct HomeRootView: View {
         case .trainingSession(let sessionID):
             TrainingSessionView(sessionID: sessionID)
         case .historyList:
-            FeaturePlaceholderRouteView(
-                title: "History",
-                message: "Task 8 history list is not implemented yet."
-            )
+            HistoryListView()
         case .historyDetail(let sessionID):
-            FeaturePlaceholderRouteView(
-                title: "History Detail",
-                message: "Task 8 history detail is not implemented yet.",
-                detail: "Session ID: \(sessionID)"
-            )
+            HistoryDetailView(sessionID: sessionID)
         case .settings:
-            FeaturePlaceholderRouteView(
-                title: "Settings",
-                message: "Task 9 settings is not implemented yet."
-            )
+            SettingsView()
         case .privacyNotice:
-            FeaturePlaceholderRouteView(
-                title: "Privacy Notice",
-                message: "Task 9 privacy notice is not implemented yet."
-            )
+            PrivacyNoticeView()
         }
     }
 
@@ -52,35 +39,13 @@ struct HomeRootView: View {
         case .focusPicker:
             FocusPickerSheet()
         case .paywall:
-            PlaceholderSheet(
-                title: "Sprint Pack",
-                message: "The paywall flow is not implemented yet."
-            )
+            PaywallSheet()
         case .deleteConfirmation(let intent):
-            PlaceholderSheet(
-                title: deleteTitle(for: intent),
-                message: "This destructive confirmation flow is not implemented yet."
-            )
+            DeleteConfirmationSheet(intent: intent)
         case .microphonePermission:
-            PlaceholderSheet(
-                title: "Microphone Permission",
-                message: "The microphone permission flow is not implemented yet."
-            )
+            MicrophonePermissionSheet()
         case .apiError(let message):
             APIErrorSheet(message: message)
-        }
-    }
-
-    private func deleteTitle(for intent: DeleteIntent) -> String {
-        switch intent {
-        case .resumeOnly:
-            return "Delete Resume"
-        case .resumeAndTraining:
-            return "Delete Resume and Training"
-        case .practiceRound:
-            return "Delete Practice Round"
-        case .allData:
-            return "Delete All Data"
         }
     }
 }
@@ -480,71 +445,6 @@ private struct HomeRowItem {
     let detail: String?
     let showsChevron: Bool
     var action: (() -> Void)? = nil
-}
-
-private struct FeaturePlaceholderRouteView: View {
-    let title: String
-    let message: String
-    var detail: String? = nil
-
-    var body: some View {
-        CoachLightScreen {
-            VStack(alignment: .leading, spacing: 24) {
-                FeatureNavBar(title: title)
-
-                VStack(alignment: .leading, spacing: 18) {
-                    Text(title)
-                        .font(.system(size: 34, weight: .bold))
-                        .foregroundStyle(CoachColor.text)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    Text(message)
-                        .font(.system(size: 17, weight: .regular))
-                        .foregroundStyle(CoachColor.text80)
-                        .lineSpacing(2)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    if let detail {
-                        Text(detail)
-                            .font(.system(size: 14, weight: .regular))
-                            .foregroundStyle(CoachColor.text48)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-            }
-        }
-    }
-}
-
-private struct PlaceholderSheet: View {
-    let title: String
-    let message: String
-
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            SheetHandle()
-
-            Text(title)
-                .font(.system(size: 28, weight: .bold))
-                .foregroundStyle(CoachColor.text)
-
-            Text(message)
-                .font(.system(size: 16, weight: .regular))
-                .foregroundStyle(CoachColor.text80)
-                .fixedSize(horizontal: false, vertical: true)
-
-            CoachPrimaryButton(title: "Close") {
-                dismiss()
-            }
-        }
-        .padding(.horizontal, 24)
-        .padding(.top, 14)
-        .padding(.bottom, 24)
-        .presentationDetents([.fraction(0.42)])
-        .presentationDragIndicator(.hidden)
-    }
 }
 
 private struct APIErrorSheet: View {
