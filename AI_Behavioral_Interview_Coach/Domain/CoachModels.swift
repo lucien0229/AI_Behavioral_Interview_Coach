@@ -137,7 +137,7 @@ extension FeedbackPayload {
         redoOutline: ["Set context in one sentence.", "State the decision you owned.", "Explain the tradeoff.", "Close with the result."],
         strongestSignal: "You picked a relevant example with real business context.",
         assessments: [
-            AssessmentLine(id: "answered_question", label: "Answered the question", status: .strong),
+            AssessmentLine(id: "answered_the_question", label: "Answered the question", status: .strong),
             AssessmentLine(id: "story_fit", label: "Story fit", status: .strong),
             AssessmentLine(id: "personal_ownership", label: "Personal ownership", status: .weak),
             AssessmentLine(id: "evidence_and_outcome", label: "Evidence and outcome", status: .mixed),

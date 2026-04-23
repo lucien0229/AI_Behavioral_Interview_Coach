@@ -292,7 +292,7 @@ private extension MockCoachService {
             ],
             strongestSignal: "The example has real scope and shows cross-functional pressure.",
             assessments: [
-                AssessmentLine(id: "answered_question", label: "Answered the question", status: .strong),
+                AssessmentLine(id: "answered_the_question", label: "Answered the question", status: .strong),
                 AssessmentLine(id: "story_fit", label: "Story fit", status: .strong),
                 AssessmentLine(id: "personal_ownership", label: "Personal ownership", status: .weak),
                 AssessmentLine(id: "evidence_and_outcome", label: "Evidence and outcome", status: .mixed),
