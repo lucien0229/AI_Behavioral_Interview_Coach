@@ -114,7 +114,10 @@ final class AppModel {
         guard let currentSession else { return false }
         do {
             self.currentSession = try await service.submitFollowupAnswer(sessionID: currentSession.id)
-            homeSnapshot = try await service.home()
+            do {
+                homeSnapshot = try await service.home()
+            } catch {
+            }
             return true
         } catch {
             activeSheet = .apiError("We could not submit your follow-up answer. Please try again.")
