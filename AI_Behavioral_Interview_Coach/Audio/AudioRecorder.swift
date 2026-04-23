@@ -36,6 +36,7 @@ final class AudioRecorder {
     @ObservationIgnored private var recordingTimer: Timer?
     @ObservationIgnored private var currentRecordingURL: URL?
     @ObservationIgnored private var playbackDelegate: PlaybackDelegate?
+    @ObservationIgnored private var activePlaybackToken: UUID?
 
     func requestPermission() async {
         let granted = await requestSystemPermission()
@@ -46,6 +47,7 @@ final class AudioRecorder {
         guard permissionState == .granted else { return }
 
         cleanupRecording()
+        activePlaybackToken = nil
 
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("audio-recorder-\(UUID().uuidString)")
@@ -79,6 +81,7 @@ final class AudioRecorder {
             try? FileManager.default.removeItem(at: url)
             recorder = nil
             currentRecordingURL = nil
+            activePlaybackToken = nil
             elapsedSeconds = 0
             recordingState = .idle
             deactivateAudioSession()
@@ -114,16 +117,18 @@ final class AudioRecorder {
         }
 
         stopPlayback()
+        let playbackToken = UUID()
 
         do {
             try activateAudioSession()
 
             let player = try AVAudioPlayer(contentsOf: url)
-            let delegate = PlaybackDelegate(owner: self)
+            let delegate = PlaybackDelegate(owner: self, token: playbackToken, url: url)
             player.delegate = delegate
             guard player.prepareToPlay(), player.play() else {
                 self.player = nil
                 playbackDelegate = nil
+                activePlaybackToken = nil
                 recordingState = .recorded(url)
                 deactivateAudioSession()
                 return
@@ -131,10 +136,12 @@ final class AudioRecorder {
 
             self.player = player
             playbackDelegate = delegate
+            activePlaybackToken = playbackToken
             recordingState = .playing
         } catch {
             self.player = nil
             playbackDelegate = nil
+            activePlaybackToken = nil
             recordingState = .recorded(url)
             deactivateAudioSession()
         }
@@ -142,17 +149,20 @@ final class AudioRecorder {
 
     func stopPlayback() {
         guard player != nil || isPlaying else {
+            activePlaybackToken = nil
             if case .playing = recordingState, let url = currentRecordingURL {
                 recordingState = .recorded(url)
             }
             return
         }
 
+        let url = currentRecordingURL ?? player?.url
+        activePlaybackToken = nil
         player?.stop()
         player = nil
         playbackDelegate = nil
 
-        if let url = currentRecordingURL {
+        if let url {
             recordingState = .recorded(url)
         } else {
             recordingState = .idle
@@ -213,6 +223,7 @@ final class AudioRecorder {
         let url = currentRecordingURL ?? player?.url
         player = nil
         playbackDelegate = nil
+        activePlaybackToken = nil
 
         if let url, FileManager.default.fileExists(atPath: url.path) {
             recordingState = .recorded(url)
@@ -257,27 +268,31 @@ final class AudioRecorder {
 
     private final class PlaybackDelegate: NSObject, AVAudioPlayerDelegate {
         weak var owner: AudioRecorder?
+        let token: UUID
+        let url: URL?
 
-        init(owner: AudioRecorder) {
+        init(owner: AudioRecorder, token: UUID, url: URL?) {
             self.owner = owner
+            self.token = token
+            self.url = url
         }
 
         func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-            let url = player.url
             Task { @MainActor [weak owner] in
-                owner?.handlePlaybackFinished(url: url, successfully: flag)
+                owner?.handlePlaybackFinished(token: token, url: url, successfully: flag)
             }
         }
 
         func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
-            let url = player.url
             Task { @MainActor [weak owner] in
-                owner?.handlePlaybackFinished(url: url, successfully: false)
+                owner?.handlePlaybackFinished(token: token, url: url, successfully: false)
             }
         }
     }
 
-    private func handlePlaybackFinished(url: URL?, successfully: Bool) {
+    private func handlePlaybackFinished(token: UUID, url: URL?, successfully: Bool) {
+        guard activePlaybackToken == token else { return }
+
         if !successfully {
             finishPlayback()
             return
