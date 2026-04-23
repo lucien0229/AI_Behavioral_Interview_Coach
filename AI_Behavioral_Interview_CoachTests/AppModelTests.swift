@@ -9,6 +9,7 @@ final class AppModelTests: XCTestCase {
         _ = try await service.uploadResume(fileName: "alex_pm_resume.pdf")
         let activeSession = try await service.createTrainingSession(focus: .ownership)
         let model = AppModel(service: service)
+        XCTAssertNil(model.selectedFocus)
 
         await model.startTraining()
 
@@ -16,6 +17,20 @@ final class AppModelTests: XCTestCase {
         XCTAssertEqual(model.currentSession?.id, activeSession.id)
         XCTAssertEqual(model.navigationPath, [.trainingSession(sessionID: activeSession.id)])
         XCTAssertNil(model.activeSheet)
+        XCTAssertNil(model.selectedFocus)
+    }
+
+    @MainActor
+    func testStartTrainingWithoutSelectedFocusKeepsSelectionNil() async throws {
+        let service = MockCoachService(processingDelayNanoseconds: 0)
+        _ = try await service.bootstrap()
+        _ = try await service.uploadResume(fileName: "alex_pm_resume.pdf")
+        let model = AppModel(service: service)
+
+        await model.startTraining()
+
+        XCTAssertNil(model.selectedFocus)
+        XCTAssertEqual(model.currentSession?.focus, .ownership)
     }
 
     @MainActor
@@ -37,7 +52,7 @@ final class AppModelTests: XCTestCase {
         XCTAssertNil(model.activeSheet)
         XCTAssertEqual(model.history, [])
         XCTAssertEqual(model.navigationPath, [])
-        XCTAssertEqual(model.selectedFocus, .ownership)
+        XCTAssertNil(model.selectedFocus)
     }
 
     @MainActor

@@ -223,7 +223,7 @@ private struct HomeActiveSessionView: View {
 
                 HomeRowList(items: [
                     .init(systemImage: "arrow.2.squarepath", title: "Current step", detail: currentStepText(appModel.homeSnapshot.activeSession ?? appModel.currentSession), showsChevron: false),
-                    .init(systemImage: "target", title: "Current focus", detail: (appModel.homeSnapshot.activeSession ?? appModel.currentSession)?.focus.displayName ?? appModel.selectedFocus.displayName, showsChevron: false),
+                    .init(systemImage: "target", title: "Current focus", detail: currentFocusText(session: appModel.homeSnapshot.activeSession ?? appModel.currentSession, selectedFocus: appModel.selectedFocus), showsChevron: false),
                     .init(systemImage: "dollarsign.circle", title: "Practice credits", detail: creditsCopy(appModel.homeSnapshot.credits.availableSessionCredits), showsChevron: false),
                     .init(systemImage: "questionmark.circle", title: "View all history", detail: "Recent practice summaries", showsChevron: true) {
                         appModel.navigationPath.append(.historyList)
@@ -746,6 +746,10 @@ private func currentStepText(_ session: TrainingSession?) -> String {
     case .failed:
         return "Failed"
     }
+}
+
+private func currentFocusText(session: TrainingSession?, selectedFocus: TrainingFocus?) -> String {
+    session?.focus.displayName ?? selectedFocus?.displayName ?? "No focus selected"
 }
 
 private func resumeProcessingDetail(_ resume: ActiveResume?) -> String {

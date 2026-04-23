@@ -10,7 +10,7 @@ final class AppModel {
     var homeSnapshot = HomeSnapshot(activeResume: nil, activeSession: nil, credits: .initialFree, recentPractice: [])
     var navigationPath: [AppRoute] = []
     var activeSheet: AppSheet?
-    var selectedFocus: TrainingFocus = .ownership
+    var selectedFocus: TrainingFocus?
     var currentSession: TrainingSession?
     var history: [PracticeSummary] = []
 
@@ -155,7 +155,7 @@ final class AppModel {
             currentSession = nil
             activeSheet = nil
             history = []
-            selectedFocus = .ownership
+            selectedFocus = nil
             await refreshHome()
         } catch {
             activeSheet = .apiError("We could not delete your app data.")
