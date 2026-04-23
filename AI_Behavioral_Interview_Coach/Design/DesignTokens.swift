@@ -62,7 +62,7 @@ extension Color {
 extension Font {
     static var coachDisplay: Font { .system(size: 27, weight: .bold, design: .default) }
     static var coachTitle: Font { .system(size: 24, weight: .bold, design: .default) }
-    static var coachSectionTitle: Font { .system(size: 21, weight: .semibold, design: .default) }
+    static var coachSectionTitle: Font { .system(size: 13, weight: .semibold, design: .default) }
     static var coachCardTitle: Font { .system(size: 17, weight: .semibold, design: .default) }
     static var coachBody: Font { .system(size: 15, weight: .regular, design: .default) }
     static var coachBodySecondary: Font { .system(size: 14, weight: .regular, design: .default) }
