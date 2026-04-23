@@ -27,6 +27,8 @@ struct CoachPrimaryButton: View {
                 }
                 Text(title)
                     .font(.coachButton)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                     .foregroundStyle(foregroundColor)
             }
             .frame(maxWidth: .infinity)
@@ -58,6 +60,8 @@ struct CoachSecondaryButton: View {
         Button(action: action) {
             Text(title)
                 .font(.coachButton)
+                .lineLimit(1)
+                .truncationMode(.tail)
                 .foregroundStyle(textColor)
                 .frame(maxWidth: .infinity)
                 .frame(height: CoachSize.secondaryButtonHeight)
@@ -82,6 +86,8 @@ struct CoachRecordingSecondaryButton: View {
         Button(action: action) {
             Text(title)
                 .font(.coachButton)
+                .lineLimit(1)
+                .truncationMode(.tail)
                 .foregroundStyle(CoachColor.darkLinkBlue)
                 .frame(maxWidth: .infinity)
                 .frame(height: CoachSize.primaryButtonHeight)
