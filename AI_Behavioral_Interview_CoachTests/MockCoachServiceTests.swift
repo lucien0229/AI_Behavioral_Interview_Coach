@@ -67,6 +67,38 @@ final class MockCoachServiceTests: XCTestCase {
         XCTAssertEqual(summary.metadataLine, "Apr 21 · Ownership · Redo skipped · Original feedback saved")
     }
 
+    func testAbandonSessionBeforeFeedbackReleasesActiveSessionAndKeepsCredit() async throws {
+        let service = MockCoachService(processingDelayNanoseconds: 0)
+        _ = try await service.bootstrap()
+        _ = try await service.uploadResume(fileName: "alex_pm_resume.pdf")
+        let session = try await service.createTrainingSession(focus: .ownership)
+
+        let abandonedSession = try await service.abandonSession(sessionID: session.id)
+        let home = try await service.home()
+        let history = try await service.history()
+
+        XCTAssertEqual(abandonedSession.status, .abandoned)
+        XCTAssertNil(home.activeSession)
+        XCTAssertEqual(home.credits.availableSessionCredits, 2)
+        XCTAssertTrue(history.isEmpty)
+    }
+
+    func testAbandonSessionAfterFeedbackIsRejected() async throws {
+        let service = MockCoachService(processingDelayNanoseconds: 0)
+        _ = try await service.bootstrap()
+        _ = try await service.uploadResume(fileName: "alex_pm_resume.pdf")
+        var session = try await service.createTrainingSession(focus: .ownership)
+        session = try await service.submitFirstAnswer(sessionID: session.id, recording: .testFixture)
+        session = try await service.submitFollowupAnswer(sessionID: session.id, recording: .testFixture)
+
+        do {
+            _ = try await service.abandonSession(sessionID: session.id)
+            XCTFail("Expected abandon after feedback to be rejected")
+        } catch CoachServiceError.invalidSessionState {
+            XCTAssertTrue(true)
+        }
+    }
+
     func testMockPurchaseAddsCredits() async throws {
         let service = MockCoachService(processingDelayNanoseconds: 0)
         _ = try await service.bootstrap()

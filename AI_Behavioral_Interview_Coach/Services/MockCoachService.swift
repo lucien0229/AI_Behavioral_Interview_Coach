@@ -231,6 +231,18 @@ actor MockCoachService: CoachService {
         return completeActiveSession(session)
     }
 
+    func abandonSession(sessionID: String) async throws -> TrainingSession {
+        var session = try requireActiveSession(id: sessionID)
+
+        guard session.status.canAbandonBeforeFeedback else {
+            throw CoachServiceError.invalidSessionState
+        }
+
+        session.status = .abandoned
+        activeSession = nil
+        return session
+    }
+
     func history() async throws -> [PracticeSummary] {
         try requireBootstrap()
         try await simulateProcessingDelay()
@@ -284,6 +296,17 @@ actor MockCoachService: CoachService {
         )
         bootstrapContext = context
         return context
+    }
+}
+
+private extension TrainingSessionStatus {
+    var canAbandonBeforeFeedback: Bool {
+        switch self {
+        case .questionGenerating, .waitingFirstAnswer, .firstAnswerProcessing, .followupGenerating, .waitingFollowupAnswer, .followupAnswerProcessing, .feedbackGenerating:
+            return true
+        case .redoAvailable, .redoProcessing, .redoEvaluating, .completed, .abandoned, .failed:
+            return false
+        }
     }
 }
 
