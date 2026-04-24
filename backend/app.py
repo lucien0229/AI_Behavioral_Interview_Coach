@@ -82,6 +82,55 @@ class AppUser:
     purchases: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
+class MockResumeParser:
+    def parse(self, file_name: str, source_language: str, raw_body: bytes) -> dict[str, str]:
+        return {
+            "status": "ready",
+            "profile_quality_status": "usable",
+        }
+
+
+class MockTrainingContentProvider:
+    def question_for_focus(self, focus: str) -> str:
+        return question_for_focus(focus)
+
+    def follow_up_for_focus(self, focus: str) -> str:
+        return follow_up_for_focus(focus)
+
+    def feedback(self) -> dict[str, Any]:
+        return feedback_payload()
+
+    def redo_review(self) -> dict[str, str]:
+        return redo_review_payload()
+
+
+class MockAudioTranscriber:
+    def transcribe(self, stage: str, raw_body: bytes, duration_seconds: float | None) -> dict[str, Any]:
+        return {
+            "text": "",
+            "duration_seconds": duration_seconds,
+        }
+
+
+class MockPurchaseVerifier:
+    def verify(self, payload: dict[str, Any]) -> dict[str, Any]:
+        if payload.get("product_id") != PRODUCT_ID:
+            raise APIError("APPLE_PURCHASE_VERIFICATION_FAILED", "The product id is not recognized.", 400)
+        return {
+            "product_id": PRODUCT_ID,
+            "transaction_id": str(payload.get("transaction_id") or ""),
+            "session_credits": SESSION_PACK_CREDITS,
+        }
+
+
+@dataclass
+class BackendProviders:
+    resume_parser: Any = field(default_factory=MockResumeParser)
+    training_content: Any = field(default_factory=MockTrainingContentProvider)
+    audio_transcriber: Any = field(default_factory=MockAudioTranscriber)
+    purchase_verifier: Any = field(default_factory=MockPurchaseVerifier)
+
+
 class SQLiteStateStore:
     def __init__(self, database_path: str):
         self.database_path = database_path
@@ -337,8 +386,9 @@ def deserialize_user(raw_user: dict[str, Any]) -> AppUser:
     return user
 
 
-def create_app(database_path: str | None = None) -> FastAPI:
+def create_app(database_path: str | None = None, providers: BackendProviders | None = None) -> FastAPI:
     state = BackendState(store=SQLiteStateStore(database_path) if database_path else None)
+    providers = providers or BackendProviders()
     app = FastAPI(title="AI Behavioral Interview Coach API", version="1.1.0-mvp")
 
     @app.post(f"{API_PREFIX}/app-users/bootstrap")
@@ -371,14 +421,18 @@ def create_app(database_path: str | None = None) -> FastAPI:
 
         def action(raw_body: bytes) -> APIReply:
             file_name = multipart_file_name(raw_body, "file") or "resume.pdf"
+            source_language = multipart_field_value(raw_body, "source_language") or "en"
             extension = file_name.rsplit(".", 1)[-1].lower() if "." in file_name else ""
             if extension not in {"pdf", "docx"}:
                 raise APIError("UNSUPPORTED_FILE_TYPE", "Only PDF and DOCX resumes are supported.", 415)
 
+            parsed_resume = providers.resume_parser.parse(file_name, source_language, raw_body)
             resume = ResumeRecord(
                 resume_id=state.next_id("res"),
                 file_name=file_name,
-                source_language=multipart_field_value(raw_body, "source_language") or "en",
+                status=str(provider_field(parsed_resume, "status", "ready")),
+                profile_quality_status=str(provider_field(parsed_resume, "profile_quality_status", "usable")),
+                source_language=source_language,
             )
             user.resumes[resume.resume_id] = resume
             user.active_resume_id = resume.resume_id
@@ -455,7 +509,7 @@ def create_app(database_path: str | None = None) -> FastAPI:
             session = TrainingSessionRecord(
                 session_id=state.next_id("ses"),
                 training_focus=focus,
-                question_text=question_for_focus(focus),
+                question_text=providers.training_content.question_for_focus(focus),
                 billing_source=billing_source,
                 reserved_credit_source=billing_source,
             )
@@ -479,7 +533,7 @@ def create_app(database_path: str | None = None) -> FastAPI:
         try:
             user = state.authenticate(request)
             session = require_session(user, session_id)
-            advance_session_on_read(user, session)
+            advance_session_on_read(user, session, providers)
             state.persist()
             return state.as_response(state.success(session_detail_payload(session)))
         except APIError as error:
@@ -511,6 +565,7 @@ def create_app(database_path: str | None = None) -> FastAPI:
             session_id,
             expected_status="waiting_first_answer",
             next_status="first_answer_processing",
+            providers=providers,
         )
 
     @app.post(f"{API_PREFIX}/training-sessions/{{session_id}}/follow-up-answer")
@@ -521,6 +576,7 @@ def create_app(database_path: str | None = None) -> FastAPI:
             session_id,
             expected_status="waiting_followup_answer",
             next_status="followup_answer_processing",
+            providers=providers,
         )
 
     @app.post(f"{API_PREFIX}/training-sessions/{{session_id}}/redo")
@@ -532,6 +588,7 @@ def create_app(database_path: str | None = None) -> FastAPI:
             expected_status="redo_available",
             next_status="redo_processing",
             mark_redo_submitted=True,
+            providers=providers,
         )
 
     @app.post(f"{API_PREFIX}/training-sessions/{{session_id}}/skip-redo")
@@ -543,7 +600,7 @@ def create_app(database_path: str | None = None) -> FastAPI:
 
         def action(_: bytes) -> APIReply:
             session = require_session(user, session_id)
-            advance_session_on_read(user, session)
+            advance_session_on_read(user, session, providers)
             if session.status != "redo_available":
                 raise APIError("TRAINING_SESSION_NOT_READY", "Redo can only be skipped after feedback is ready.", 409)
             session.status = "completed"
@@ -608,10 +665,10 @@ def create_app(database_path: str | None = None) -> FastAPI:
 
         def action(raw_body: bytes) -> APIReply:
             payload = json_payload(raw_body)
-            if payload.get("product_id") != PRODUCT_ID:
-                raise APIError("APPLE_PURCHASE_VERIFICATION_FAILED", "The product id is not recognized.", 400)
+            verification = providers.purchase_verifier.verify(payload)
 
-            transaction_id = str(payload.get("transaction_id") or state.next_id("txn"))
+            transaction_id = str(provider_field(verification, "transaction_id", payload.get("transaction_id") or state.next_id("txn")))
+            session_credits = int(provider_field(verification, "session_credits", SESSION_PACK_CREDITS))
             purchase = user.purchases.get(transaction_id)
             if not purchase:
                 purchase = {
@@ -621,7 +678,7 @@ def create_app(database_path: str | None = None) -> FastAPI:
                     "verified_at": utc_now(),
                 }
                 user.purchases[transaction_id] = purchase
-                user.paid_session_credits_remaining += SESSION_PACK_CREDITS
+                user.paid_session_credits_remaining += session_credits
 
             return state.success(
                 {
@@ -679,6 +736,7 @@ async def mutate_session_with_audio(
     session_id: str,
     expected_status: str,
     next_status: str,
+    providers: BackendProviders,
     mark_redo_submitted: bool = False,
 ) -> JSONResponse:
     try:
@@ -686,11 +744,16 @@ async def mutate_session_with_audio(
     except APIError as error:
         return state.as_response(state.failure(error))
 
-    def action(_: bytes) -> APIReply:
+    def action(raw_body: bytes) -> APIReply:
         session = require_session(user, session_id)
-        advance_session_on_read(user, session)
+        advance_session_on_read(user, session, providers)
         if session.status != expected_status:
             raise APIError("TRAINING_SESSION_NOT_READY", "The training session is not ready for this upload.", 409)
+        providers.audio_transcriber.transcribe(
+            audio_stage_for_status(next_status),
+            raw_body,
+            parse_duration_seconds(raw_body),
+        )
         session.status = next_status
         if mark_redo_submitted:
             session.redo_submitted = True
@@ -721,6 +784,32 @@ def multipart_field_value(raw_body: bytes, field_name: str) -> str | None:
     text = raw_body.decode("latin1", errors="ignore")
     match = re.search(rf'name="{re.escape(field_name)}"\r\n\r\n([^\r\n]*)', text)
     return match.group(1) if match else None
+
+
+def provider_field(result: Any, field_name: str, default: Any) -> Any:
+    if isinstance(result, dict):
+        return result.get(field_name, default)
+    return getattr(result, field_name, default)
+
+
+def parse_duration_seconds(raw_body: bytes) -> float | None:
+    raw_duration = multipart_field_value(raw_body, "duration_seconds")
+    if raw_duration is None:
+        return None
+    try:
+        return float(raw_duration)
+    except ValueError:
+        return None
+
+
+def audio_stage_for_status(next_status: str) -> str:
+    if next_status == "first_answer_processing":
+        return "first_answer"
+    if next_status == "followup_answer_processing":
+        return "follow_up_answer"
+    if next_status == "redo_processing":
+        return "redo"
+    return next_status
 
 
 def bootstrap_payload(user: AppUser) -> dict[str, Any]:
@@ -825,24 +914,24 @@ def consume_reserved_credit(user: AppUser, session: TrainingSessionRecord) -> No
     session.reserved_credit_source = None
 
 
-def advance_session_on_read(user: AppUser, session: TrainingSessionRecord) -> None:
+def advance_session_on_read(user: AppUser, session: TrainingSessionRecord, providers: BackendProviders) -> None:
     if session.status == "question_generating":
         session.status = "waiting_first_answer"
         return
     if session.status == "first_answer_processing":
         session.status = "waiting_followup_answer"
-        session.follow_up_text = follow_up_for_focus(session.training_focus)
+        session.follow_up_text = providers.training_content.follow_up_for_focus(session.training_focus)
         return
     if session.status == "followup_answer_processing":
         consume_reserved_credit(user, session)
         session.status = "redo_available"
-        session.feedback = feedback_payload()
+        session.feedback = providers.training_content.feedback()
         return
     if session.status == "redo_processing":
         session.status = "completed"
         session.completion_reason = "redo_review_generated"
         session.completed_at = utc_now()
-        session.redo_review = redo_review_payload()
+        session.redo_review = providers.training_content.redo_review()
         session.redo_submitted = True
         if user.active_session_id == session.session_id:
             user.active_session_id = None

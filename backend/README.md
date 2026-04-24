@@ -19,6 +19,22 @@ from backend.app import create_app
 app = create_app(database_path="local-api.sqlite3")
 ```
 
+For production provider wiring, pass a `BackendProviders` bundle:
+
+```python
+from backend.app import BackendProviders, create_app
+
+app = create_app(
+    database_path="local-api.sqlite3",
+    providers=BackendProviders(
+        resume_parser=resume_parser,
+        training_content=training_content_provider,
+        audio_transcriber=audio_transcriber,
+        purchase_verifier=apple_purchase_verifier,
+    ),
+)
+```
+
 ## Verify
 
 ```bash
@@ -29,8 +45,9 @@ python3 -m pytest backend/tests/test_api_contract.py -q
 
 - In-memory anonymous users, resumes, sessions, idempotency records, and purchase state by default.
 - Optional SQLite state snapshot persistence for local restart testing and backend provider wiring.
+- Injectable provider bundle for resume parsing, training content generation, audio transcription, and Apple purchase verification.
 - iOS-compatible envelope responses: `request_id`, `data`, `error`.
 - Covered flows: bootstrap, home, resume upload/status/delete, training session lifecycle, billing stubs, and delete-all-data.
 - Mock AI, ASR, resume parsing, Apple verification, and file storage providers.
 
-The next backend step is replacing the SQLite snapshot and mock providers with production dependencies: Postgres, object storage, Apple App Store Server verification, ASR, and AI generation.
+The next backend step is replacing the SQLite snapshot and default mock providers with production dependencies: Postgres, object storage, Apple App Store Server verification, ASR, and AI generation.
