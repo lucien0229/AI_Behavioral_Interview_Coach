@@ -407,10 +407,10 @@ private actor PollingCoachService: CoachService {
         []
     }
 
-    func mockPurchaseSprintPack() async throws {
+    func purchaseSprintPack() async throws {
     }
 
-    func mockRestorePurchase() async throws {
+    func restorePurchase() async throws {
     }
 
     func deleteAllData() async throws -> BootstrapContext {

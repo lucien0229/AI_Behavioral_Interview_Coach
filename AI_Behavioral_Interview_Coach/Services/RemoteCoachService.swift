@@ -181,12 +181,16 @@ actor RemoteCoachService: CoachService {
         return try await history()
     }
 
-    func mockPurchaseSprintPack() async throws {
+    func purchaseSprintPack() async throws {
         throw CoachServiceError.mockFailure(message: "Remote purchase verification requires StoreKit transaction integration.")
     }
 
-    func mockRestorePurchase() async throws {
-        throw CoachServiceError.mockFailure(message: "Remote purchase restore requires StoreKit transaction integration.")
+    func restorePurchase() async throws {
+        let _: RestorePurchaseData = try await send(
+            path: "/billing/apple/restore",
+            method: "POST",
+            requiresIdempotencyKey: true
+        )
     }
 
     func deleteAllData() async throws -> BootstrapContext {
@@ -681,6 +685,11 @@ private struct HistoryItemData: Decodable {
 
 private struct DeletePracticeData: Decodable {
     let deleted: Bool
+}
+
+private struct RestorePurchaseData: Decodable {
+    let restoredPurchaseCount: Int
+    let usageBalance: UsageBalanceData
 }
 
 private struct DeleteAllDataResponse: Decodable {

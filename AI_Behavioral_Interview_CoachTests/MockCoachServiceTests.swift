@@ -70,7 +70,7 @@ final class MockCoachServiceTests: XCTestCase {
     func testMockPurchaseAddsCredits() async throws {
         let service = MockCoachService(processingDelayNanoseconds: 0)
         _ = try await service.bootstrap()
-        try await service.mockPurchaseSprintPack()
+        try await service.purchaseSprintPack()
 
         let home = try await service.home()
         XCTAssertEqual(home.credits.availableSessionCredits, 7)
@@ -79,7 +79,7 @@ final class MockCoachServiceTests: XCTestCase {
     func testMockRestoreAddsCredits() async throws {
         let service = MockCoachService(processingDelayNanoseconds: 0)
         _ = try await service.bootstrap()
-        try await service.mockRestorePurchase()
+        try await service.restorePurchase()
 
         let home = try await service.home()
         XCTAssertEqual(home.credits.availableSessionCredits, 7)
@@ -295,9 +295,9 @@ final class MockCoachServiceTests: XCTestCase {
     func testDeleteAllDataThenPurchaseProducesInitialPlusPackCredits() async throws {
         let service = MockCoachService(processingDelayNanoseconds: 50_000_000)
         _ = try await service.bootstrap()
-        try await service.mockPurchaseSprintPack()
+        try await service.purchaseSprintPack()
         _ = try await service.deleteAllData()
-        try await service.mockPurchaseSprintPack()
+        try await service.purchaseSprintPack()
 
         let home = try await service.home()
         XCTAssertEqual(home.credits.availableSessionCredits, 7)

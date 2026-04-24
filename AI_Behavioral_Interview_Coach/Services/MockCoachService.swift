@@ -260,12 +260,12 @@ actor MockCoachService: CoachService {
         return completedSessions.map(practiceSummary)
     }
 
-    func mockPurchaseSprintPack() async throws {
+    func purchaseSprintPack() async throws {
         try requireBootstrap()
         credits.availableSessionCredits += 5
     }
 
-    func mockRestorePurchase() async throws {
+    func restorePurchase() async throws {
         try requireBootstrap()
         credits.availableSessionCredits += 5
     }
