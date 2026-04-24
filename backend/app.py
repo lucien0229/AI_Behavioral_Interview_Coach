@@ -12,6 +12,8 @@ from typing import Any, Callable
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from backend.file_storage import InMemoryFileStorage
+
 
 API_PREFIX = "/api/v1"
 PRODUCT_ID = "coach_sprint_pack_01"
@@ -47,6 +49,7 @@ class ResumeRecord:
     profile_quality_status: str = "usable"
     source_language: str = "en"
     deleted: bool = False
+    storage_key: str | None = None
 
 
 @dataclass
@@ -65,6 +68,7 @@ class TrainingSessionRecord:
     reserved_credit_source: str | None = "free"
     redo_submitted: bool = False
     deleted: bool = False
+    audio_storage_keys: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -130,6 +134,7 @@ class BackendProviders:
     training_content: Any = field(default_factory=MockTrainingContentProvider)
     audio_transcriber: Any = field(default_factory=MockAudioTranscriber)
     purchase_verifier: Any = field(default_factory=MockPurchaseVerifier)
+    file_storage: Any = field(default_factory=InMemoryFileStorage)
 
 
 class SQLiteStateStore:
@@ -362,6 +367,7 @@ def deserialize_user(raw_user: dict[str, Any]) -> AppUser:
             profile_quality_status=resume.get("profile_quality_status", "usable"),
             source_language=resume.get("source_language", "en"),
             deleted=bool(resume.get("deleted", False)),
+            storage_key=resume.get("storage_key"),
         )
         for resume_id, resume in raw_user.get("resumes", {}).items()
     }
@@ -381,6 +387,7 @@ def deserialize_user(raw_user: dict[str, Any]) -> AppUser:
             reserved_credit_source=session.get("reserved_credit_source"),
             redo_submitted=bool(session.get("redo_submitted", False)),
             deleted=bool(session.get("deleted", False)),
+            audio_storage_keys=session.get("audio_storage_keys", {}),
         )
         for session_id, session in raw_user.get("sessions", {}).items()
     }
@@ -428,12 +435,22 @@ def create_app(database_path: str | None = None, providers: BackendProviders | N
                 raise APIError("UNSUPPORTED_FILE_TYPE", "Only PDF and DOCX resumes are supported.", 415)
 
             parsed_resume = providers.resume_parser.parse(file_name, source_language, raw_body)
+            resume_id = state.next_id("res")
+            storage_key = providers.file_storage.save_upload(
+                kind="resumes",
+                owner_id=user.app_user_id,
+                object_id=resume_id,
+                file_name=file_name,
+                data=multipart_file_bytes(raw_body, "file"),
+                content_type=multipart_file_content_type(raw_body, "file"),
+            )
             resume = ResumeRecord(
-                resume_id=state.next_id("res"),
+                resume_id=resume_id,
                 file_name=file_name,
                 status=str(provider_field(parsed_resume, "status", "ready")),
                 profile_quality_status=str(provider_field(parsed_resume, "profile_quality_status", "usable")),
                 source_language=source_language,
+                storage_key=storage_key,
             )
             user.resumes[resume.resume_id] = resume
             user.active_resume_id = resume.resume_id
@@ -463,11 +480,13 @@ def create_app(database_path: str | None = None, providers: BackendProviders | N
             payload = json_payload(raw_body) if raw_body else {}
             delete_mode = payload.get("delete_mode", "resume_only_redacted_history")
             if user.active_resume_id and user.active_resume_id in user.resumes:
+                delete_storage_keys(providers.file_storage, [user.resumes[user.active_resume_id].storage_key])
                 user.resumes[user.active_resume_id].deleted = True
             user.active_resume_id = None
 
             if delete_mode == "resume_and_linked_training":
                 for session in user.sessions.values():
+                    delete_storage_keys(providers.file_storage, session.audio_storage_keys.values())
                     if session.credit_state == "reserved":
                         release_reserved_credit(user, session)
                     session.deleted = True
@@ -551,6 +570,7 @@ def create_app(database_path: str | None = None, providers: BackendProviders | N
             session = require_session(user, session_id)
             if session.credit_state == "reserved":
                 release_reserved_credit(user, session)
+            delete_storage_keys(providers.file_storage, session.audio_storage_keys.values())
             session.deleted = True
             if user.active_session_id == session.session_id:
                 user.active_session_id = None
@@ -716,6 +736,7 @@ def create_app(database_path: str | None = None, providers: BackendProviders | N
             return state.as_response(state.failure(error))
 
         def action(_: bytes) -> APIReply:
+            delete_storage_keys(providers.file_storage, user_storage_keys(user))
             user.resumes.clear()
             user.sessions.clear()
             user.purchases.clear()
@@ -755,6 +776,16 @@ async def mutate_session_with_audio(
             raw_body,
             parse_duration_seconds(raw_body),
         )
+        audio_stage = audio_stage_for_status(next_status)
+        audio_file_name = multipart_file_name(raw_body, "audio_file") or f"{audio_stage}.m4a"
+        session.audio_storage_keys[audio_stage] = providers.file_storage.save_upload(
+            kind="audio",
+            owner_id=user.app_user_id,
+            object_id=f"{session.session_id}-{audio_stage}",
+            file_name=audio_file_name,
+            data=multipart_file_bytes(raw_body, "audio_file"),
+            content_type=multipart_file_content_type(raw_body, "audio_file"),
+        )
         session.status = next_status
         if mark_redo_submitted:
             session.redo_submitted = True
@@ -781,6 +812,30 @@ def multipart_file_name(raw_body: bytes, field_name: str) -> str | None:
     return match.group(1) if match else None
 
 
+def multipart_file_content_type(raw_body: bytes, field_name: str) -> str | None:
+    text = raw_body.decode("latin1", errors="ignore")
+    match = re.search(
+        rf'name="{re.escape(field_name)}"; filename="[^"]+"\r\nContent-Type: ([^\r\n]+)',
+        text,
+    )
+    return match.group(1) if match else None
+
+
+def multipart_file_bytes(raw_body: bytes, field_name: str) -> bytes:
+    text = raw_body.decode("latin1", errors="ignore")
+    match = re.search(
+        rf'name="{re.escape(field_name)}"; filename="[^"]+"\r\nContent-Type: [^\r\n]+\r\n\r\n',
+        text,
+    )
+    if not match:
+        return b""
+    boundary = text.split("\r\n", 1)[0]
+    end = text.find(f"\r\n{boundary}", match.end())
+    if end == -1:
+        end = len(text)
+    return text[match.end():end].encode("latin1")
+
+
 def multipart_field_value(raw_body: bytes, field_name: str) -> str | None:
     text = raw_body.decode("latin1", errors="ignore")
     match = re.search(rf'name="{re.escape(field_name)}"\r\n\r\n([^\r\n]*)', text)
@@ -791,6 +846,21 @@ def provider_field(result: Any, field_name: str, default: Any) -> Any:
     if isinstance(result, dict):
         return result.get(field_name, default)
     return getattr(result, field_name, default)
+
+
+def user_storage_keys(user: AppUser) -> list[str | None]:
+    keys: list[str | None] = []
+    for resume in user.resumes.values():
+        keys.append(resume.storage_key)
+    for session in user.sessions.values():
+        keys.extend(session.audio_storage_keys.values())
+    return keys
+
+
+def delete_storage_keys(file_storage: Any, keys: Any) -> None:
+    for key in keys:
+        if key:
+            file_storage.delete(key)
 
 
 def parse_duration_seconds(raw_body: bytes) -> float | None:
@@ -863,6 +933,7 @@ def resume_payload(resume: ResumeRecord | None) -> dict[str, Any] | None:
         "profile_quality_status": resume.profile_quality_status,
         "file_name": resume.file_name,
         "source_language": resume.source_language,
+        "storage_key": resume.storage_key,
     }
 
 
@@ -977,6 +1048,7 @@ def session_detail_payload(session: TrainingSessionRecord) -> dict[str, Any]:
         "feedback": session.feedback,
         "redo_review": session.redo_review,
         "completed_at": session.completed_at,
+        "audio_storage_keys": session.audio_storage_keys,
     }
 
 
