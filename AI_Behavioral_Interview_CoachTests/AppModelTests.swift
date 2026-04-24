@@ -247,6 +247,140 @@ final class AppModelTests: XCTestCase {
     }
 
     @MainActor
+    func testAbandonCurrentSessionReleasesSessionAndRoutesHome() async throws {
+        let service = MockCoachService(processingDelayNanoseconds: 0)
+        _ = try await service.bootstrap()
+        _ = try await service.uploadResume(fileName: "alex_pm_resume.pdf")
+        let activeSession = try await service.createTrainingSession(focus: .ownership)
+        let analytics = RecordingAnalyticsService()
+        let model = AppModel(service: service, analytics: analytics)
+        model.currentSession = activeSession
+        model.navigationPath = [.trainingSession(sessionID: activeSession.id)]
+
+        await model.abandonCurrentSession()
+
+        let home = try await service.home()
+        let events = await analytics.events()
+        XCTAssertNil(model.currentSession)
+        XCTAssertNil(home.activeSession)
+        XCTAssertEqual(home.credits.availableSessionCredits, 2)
+        XCTAssertEqual(model.navigationPath, [])
+        let abandoned = events.last { $0.name == "training_session_abandoned" }
+        XCTAssertEqual(abandoned?.properties["session_id"], activeSession.id)
+        XCTAssertEqual(abandoned?.properties["credit_state"], "released")
+    }
+
+    @MainActor
+    func testAbandonCurrentTerminalSessionRoutesHomeWithoutCallingAbandon() async throws {
+        let service = MockCoachService(processingDelayNanoseconds: 0)
+        _ = try await service.bootstrap()
+        _ = try await service.uploadResume(fileName: "alex_pm_resume.pdf")
+        var session = try await service.createTrainingSession(focus: .ownership)
+        session = try await service.submitFirstAnswer(sessionID: session.id, recording: .testFixture)
+        session = try await service.submitFollowupAnswer(sessionID: session.id, recording: .testFixture)
+        session = try await service.submitRedo(sessionID: session.id, recording: .testFixture)
+        let model = AppModel(service: service)
+        model.currentSession = session
+        model.navigationPath = [.trainingSession(sessionID: session.id)]
+
+        await model.abandonCurrentSession()
+
+        XCTAssertNil(model.currentSession)
+        XCTAssertEqual(model.navigationPath, [])
+        XCTAssertNil(model.activeSheet)
+        XCTAssertEqual(model.homeSnapshot.recentPractice.map(\.id), [session.id])
+    }
+
+    @MainActor
+    func testBootstrapTracksHomeViewedWithPrimaryState() async {
+        let service = MockCoachService(processingDelayNanoseconds: 0)
+        let analytics = RecordingAnalyticsService()
+        let model = AppModel(service: service, analytics: analytics)
+
+        await model.bootstrap()
+
+        let events = await analytics.events()
+        XCTAssertEqual(events.map(\.name), [
+            "app_bootstrap_started",
+            "app_bootstrap_completed",
+            "home_viewed"
+        ])
+        let homeViewed = try? XCTUnwrap(events.last)
+        XCTAssertEqual(homeViewed?.properties["event_schema_version"], "analytics_v1")
+        XCTAssertEqual(homeViewed?.properties["app_user_id"], "mock_user_alex")
+        XCTAssertEqual(homeViewed?.properties["home_primary_state"], "noResume")
+    }
+
+    @MainActor
+    func testTrainingFunnelTracksServerBackedCompletionInOrder() async {
+        let service = MockCoachService(processingDelayNanoseconds: 0)
+        let analytics = RecordingAnalyticsService()
+        let model = AppModel(service: service, analytics: analytics)
+
+        await model.bootstrap()
+        await model.uploadResume(fileName: "alex_pm_resume.pdf")
+        await model.startTraining()
+        _ = await model.submitFirstAnswer(recording: .testFixture)
+        _ = await model.submitFollowupAnswer(recording: .testFixture)
+        await model.trackFeedbackViewed()
+        await model.skipRedo()
+
+        let events = await analytics.events()
+        XCTAssertContainsOrderedEventNames(
+            events,
+            [
+                "training_session_create_started",
+                "training_session_created",
+                "question_viewed",
+                "first_answer_submitted",
+                "follow_up_viewed",
+                "follow_up_answer_submitted",
+                "feedback_generated",
+                "feedback_viewed",
+                "redo_skipped",
+                "training_session_completed"
+            ]
+        )
+        let completed = events.last { $0.name == "training_session_completed" }
+        XCTAssertEqual(completed?.properties["completion_reason"], "redo_skipped")
+    }
+
+    @MainActor
+    func testFeedbackViewedIsOnlyTrackedAfterExplicitViewExposure() async {
+        let service = MockCoachService(processingDelayNanoseconds: 0)
+        let analytics = RecordingAnalyticsService()
+        let model = AppModel(service: service, analytics: analytics)
+
+        await model.bootstrap()
+        await model.uploadResume(fileName: "alex_pm_resume.pdf")
+        await model.startTraining()
+        _ = await model.submitFirstAnswer(recording: .testFixture)
+        _ = await model.submitFollowupAnswer(recording: .testFixture)
+
+        var events = await analytics.events()
+        XCTAssertFalse(events.contains { $0.name == "feedback_viewed" })
+
+        await model.trackFeedbackViewed()
+
+        events = await analytics.events()
+        XCTAssertTrue(events.contains { $0.name == "feedback_viewed" })
+    }
+
+    @MainActor
+    func testPurchaseVerifiedIsNotTrackedWhenPurchaseFails() async {
+        let service = PollingCoachService(purchaseError: .purchaseVerificationFailed)
+        let analytics = RecordingAnalyticsService()
+        let model = AppModel(service: service, analytics: analytics)
+
+        await model.buySprintPack()
+
+        let events = await analytics.events()
+        XCTAssertTrue(events.contains { $0.name == "purchase_started" })
+        XCTAssertTrue(events.contains { $0.name == "purchase_failed" })
+        XCTAssertFalse(events.contains { $0.name == "purchase_verified" })
+    }
+
+    @MainActor
     func testBuySprintPackRefreshesCreditsAndDismissesSheet() async {
         let service = MockCoachService(processingDelayNanoseconds: 0)
         let model = AppModel(service: service)
@@ -296,6 +430,39 @@ final class AppModelTests: XCTestCase {
         XCTAssertEqual(model.navigationPath, [.historyList])
         XCTAssertNil(model.currentSession)
         XCTAssertNil(model.activeSheet)
+    }
+}
+
+private func XCTAssertContainsOrderedEventNames(
+    _ events: [AnalyticsEvent],
+    _ expectedNames: [String],
+    file: StaticString = #filePath,
+    line: UInt = #line
+) {
+    var searchStartIndex = events.startIndex
+
+    for expectedName in expectedNames {
+        guard let foundIndex = events[searchStartIndex...].firstIndex(where: { $0.name == expectedName }) else {
+            XCTFail("Missing analytics event \(expectedName)", file: file, line: line)
+            return
+        }
+        searchStartIndex = events.index(after: foundIndex)
+    }
+}
+
+private actor RecordingAnalyticsService: AnalyticsService {
+    private var capturedEvents: [AnalyticsEvent] = []
+
+    func track(_ event: AnalyticsEvent) async {
+        capturedEvents.append(event)
+    }
+
+    func reset() async {
+        capturedEvents.removeAll()
+    }
+
+    func events() -> [AnalyticsEvent] {
+        capturedEvents
     }
 }
 
@@ -414,6 +581,10 @@ private actor PollingCoachService: CoachService {
 
     func skipRedo(sessionID: String) async throws -> TrainingSession {
         TrainingSession.fixture(status: .completed)
+    }
+
+    func abandonSession(sessionID: String) async throws -> TrainingSession {
+        TrainingSession.fixture(status: .abandoned)
     }
 
     func history() async throws -> [PracticeSummary] {

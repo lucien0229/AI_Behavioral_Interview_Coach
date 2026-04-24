@@ -235,6 +235,15 @@ actor RemoteCoachService: CoachService {
         return data.domainTrainingSession(fallbackFocus: .ownership)
     }
 
+    func abandonSession(sessionID: String) async throws -> TrainingSession {
+        let data: SessionMutationData = try await send(
+            path: "/training-sessions/\(sessionID)/abandon",
+            method: "POST",
+            requiresIdempotencyKey: true
+        )
+        return data.domainTrainingSession(fallbackFocus: .ownership)
+    }
+
     func history() async throws -> [PracticeSummary] {
         let data: HistoryData = try await send(path: "/training-sessions/history", method: "GET", queryItems: [URLQueryItem(name: "limit", value: "10")])
         return data.items.map { $0.domainPracticeSummary() }

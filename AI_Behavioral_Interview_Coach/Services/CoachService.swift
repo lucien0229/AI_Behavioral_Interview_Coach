@@ -45,6 +45,7 @@ protocol CoachService: Sendable {
     func submitFollowupAnswer(sessionID: String, recording: RecordedAudio) async throws -> TrainingSession
     func submitRedo(sessionID: String, recording: RecordedAudio) async throws -> TrainingSession
     func skipRedo(sessionID: String) async throws -> TrainingSession
+    func abandonSession(sessionID: String) async throws -> TrainingSession
     func history() async throws -> [PracticeSummary]
     func historyDetail(id: String) async throws -> TrainingSession
     func deletePractice(id: String) async throws -> [PracticeSummary]

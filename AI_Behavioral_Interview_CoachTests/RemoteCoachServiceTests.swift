@@ -203,6 +203,36 @@ final class RemoteCoachServiceTests: XCTestCase {
         XCTAssertTrue(body.contains("real-audio-bytes"))
     }
 
+    func testAbandonSessionPostsEndpointWithIdempotencyKey() async throws {
+        let transport = RecordingAPITransport(responses: [
+            .json(bootstrapResponseJSON),
+            .json(abandonSessionResponseJSON)
+        ])
+        let service = RemoteCoachService(
+            baseURL: try XCTUnwrap(URL(string: "https://api.example.test")),
+            installationID: "install-123",
+            localeIdentifier: "en-US",
+            appVersion: "1.0",
+            idempotencyKey: { "idem-abandon" },
+            transport: transport
+        )
+
+        _ = try await service.bootstrap()
+        let session = try await service.abandonSession(sessionID: "ses_new")
+        let requests = await transport.requests()
+
+        XCTAssertEqual(session.id, "ses_new")
+        XCTAssertEqual(session.status, .abandoned)
+        XCTAssertEqual(requests.map(\.path), [
+            "/api/v1/app-users/bootstrap",
+            "/api/v1/training-sessions/ses_new/abandon"
+        ])
+        XCTAssertEqual(requests[1].method, "POST")
+        XCTAssertEqual(requests[1].headers["Authorization"], "Bearer opaque-token")
+        XCTAssertEqual(requests[1].headers["Idempotency-Key"], "idem-abandon")
+        XCTAssertNil(requests[1].body)
+    }
+
     func testRestorePurchasePostsAppleRestoreEndpointWithIdempotencyKey() async throws {
         let transport = RecordingAPITransport(responses: [
             .json(bootstrapResponseJSON),
@@ -528,6 +558,19 @@ private let firstAnswerSubmittedResponseJSON = """
   "data": {
     "session_id": "ses_new",
     "status": "first_answer_processing"
+  },
+  "error": null
+}
+"""
+
+private let abandonSessionResponseJSON = """
+{
+  "request_id": "req_abandon",
+  "data": {
+    "session_id": "ses_new",
+    "status": "abandoned",
+    "training_focus": "ownership",
+    "credit_state": "released"
   },
   "error": null
 }

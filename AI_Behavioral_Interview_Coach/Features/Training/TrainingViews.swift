@@ -45,6 +45,7 @@ struct TrainingSessionView: View {
                 question: session.questionText,
                 recordingLabel: "Your first answer",
                 submitTitle: "Submit answer",
+                recordingStartedEventName: "first_answer_recording_started",
                 topSupplement: {
                     EmptyView()
                 },
@@ -61,6 +62,7 @@ struct TrainingSessionView: View {
                 question: session.followupText ?? "What specific decision did you personally make at that point?",
                 recordingLabel: "Answer the follow-up",
                 submitTitle: "Submit answer",
+                recordingStartedEventName: "follow_up_answer_recording_started",
                 topSupplement: {
                     OriginalQuestionCard(question: session.questionText)
                 },
@@ -115,9 +117,8 @@ struct TrainingSessionView: View {
     }
 
     private func dismissToHome() {
-        appModel.navigationPath.removeAll()
         Task {
-            await appModel.refreshHome()
+            await appModel.abandonCurrentSession()
         }
     }
 
@@ -200,6 +201,7 @@ private struct RecordingPromptView<Supplement: View>: View {
     let question: String
     let recordingLabel: String
     let submitTitle: String
+    let recordingStartedEventName: String
     let topSupplement: () -> Supplement
     let onBackHome: () -> Void
     let onSubmit: (RecordedAudio) async -> Bool
@@ -211,6 +213,7 @@ private struct RecordingPromptView<Supplement: View>: View {
         question: String,
         recordingLabel: String,
         submitTitle: String,
+        recordingStartedEventName: String,
         @ViewBuilder topSupplement: @escaping () -> Supplement,
         onBackHome: @escaping () -> Void,
         onSubmit: @escaping (RecordedAudio) async -> Bool
@@ -221,6 +224,7 @@ private struct RecordingPromptView<Supplement: View>: View {
         self.question = question
         self.recordingLabel = recordingLabel
         self.submitTitle = submitTitle
+        self.recordingStartedEventName = recordingStartedEventName
         self.topSupplement = topSupplement
         self.onBackHome = onBackHome
         self.onSubmit = onSubmit
@@ -403,6 +407,7 @@ private struct RecordingPromptView<Supplement: View>: View {
             return
         }
 
+        await appModel.trackRecordingStarted(eventName: recordingStartedEventName)
         recorder.startRecording()
     }
 
@@ -426,6 +431,8 @@ private struct RecordingPromptView<Supplement: View>: View {
 }
 
 private struct FeedbackRedoDecisionView: View {
+    @Environment(AppModel.self) private var appModel
+
     let session: TrainingSession
     let onBackHome: () -> Void
     let onRedo: () -> Void
@@ -473,6 +480,9 @@ private struct FeedbackRedoDecisionView: View {
                 }
             }
             .padding(.top, CoachSpace.lg)
+            .task(id: session.id) {
+                await appModel.trackFeedbackViewed()
+            }
         }
     }
 
@@ -664,6 +674,7 @@ private struct RedoAnswerView: View {
             return
         }
 
+        await appModel.trackRecordingStarted(eventName: "redo_started")
         recorder.startRecording()
     }
 
@@ -688,6 +699,8 @@ private struct RedoAnswerView: View {
 }
 
 private struct CompletedResultView: View {
+    @Environment(AppModel.self) private var appModel
+
     let session: TrainingSession
     let onBackHome: () -> Void
     let onStartNext: () async -> Void
@@ -758,6 +771,9 @@ private struct CompletedResultView: View {
                 }
             }
             .padding(.top, CoachSpace.lg)
+            .task(id: session.id) {
+                await appModel.trackRedoReviewViewed()
+            }
         }
     }
 

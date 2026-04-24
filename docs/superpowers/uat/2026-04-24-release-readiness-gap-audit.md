@@ -6,63 +6,103 @@ Scope: iPhone release acceptance gap audit against QA gate and current code/test
 
 ## 1. Release gate verdict
 
-Current verdict: **Not ready for release gate sign-off**.
+Current verdict: **Code blockers closed; release sign-off pending TestFlight sandbox evidence**.
 
-Blocking reasons:
-1. QA gate requires **P0/P1 full pass** and **TestFlight sandbox E2E x5 consecutive pass** ([AI_Behavioral_Interview_Coach_QA_Acceptance_Test_Plan_v1.md](/Users/wxm/Desktop/workspace/AI_Behavioral_Interview_Coach_Pencil/docs/ios/AI_Behavioral_Interview_Coach_QA_Acceptance_Test_Plan_v1.md:123), [AI_Behavioral_Interview_Coach_QA_Acceptance_Test_Plan_v1.md](/Users/wxm/Desktop/workspace/AI_Behavioral_Interview_Coach_Pencil/docs/ios/AI_Behavioral_Interview_Coach_QA_Acceptance_Test_Plan_v1.md:1121), [AI_Behavioral_Interview_Coach_QA_Acceptance_Test_Plan_v1.md](/Users/wxm/Desktop/workspace/AI_Behavioral_Interview_Coach_Pencil/docs/ios/AI_Behavioral_Interview_Coach_QA_Acceptance_Test_Plan_v1.md:1125)).
-2. Current UAT is simulator-centered and does not provide TestFlight sandbox evidence ([2026-04-23-iphone-uat.md](/Users/wxm/Desktop/workspace/AI_Behavioral_Interview_Coach_Pencil/docs/superpowers/uat/2026-04-23-iphone-uat.md:36)).
-3. `abandon` API exists in OpenAPI but client service contract/call path is missing, leaving session-release path unverifiable ([openapi.yaml](/Users/wxm/Desktop/workspace/AI_Behavioral_Interview_Coach_Pencil/docs/api/openapi.yaml:171), [CoachService.swift](/Users/wxm/Desktop/workspace/AI_Behavioral_Interview_Coach_Pencil/AI_Behavioral_Interview_Coach/Services/CoachService.swift:37)).
-4. Analytics acceptance suite is not yet evidenced by in-app event pipeline/implementation ([AI_Behavioral_Interview_Coach_QA_Acceptance_Test_Plan_v1.md](/Users/wxm/Desktop/workspace/AI_Behavioral_Interview_Coach_Pencil/docs/ios/AI_Behavioral_Interview_Coach_QA_Acceptance_Test_Plan_v1.md:798)).
+The original audit found three blocking gaps:
 
-## 2. Evidence-based coverage snapshot (P0/P1)
+1. **B1 - Missing abandon integration**: fixed in this branch.
+2. **B2 - Missing analytics implementation evidence**: fixed in this branch for the required v1 client-side event pipeline and privacy guard.
+3. **B3 - Missing TestFlight sandbox gate evidence**: not executable from the local workspace. A runbook and evidence template now exist, but the gate remains open until QA records 5 consecutive TestFlight sandbox passes.
 
-### 2.1 Confirmed pass evidence (code + tests)
+This branch should not be treated as final release sign-off until B3 has real TestFlight evidence.
 
-1. Idempotency and unauthorized retry keep same key:
-   [RemoteCoachService.swift](/Users/wxm/Desktop/workspace/AI_Behavioral_Interview_Coach_Pencil/AI_Behavioral_Interview_Coach/Services/RemoteCoachService.swift:358), [RemoteCoachService.swift](/Users/wxm/Desktop/workspace/AI_Behavioral_Interview_Coach_Pencil/AI_Behavioral_Interview_Coach/Services/RemoteCoachService.swift:383), [RemoteCoachServiceTests.swift](/Users/wxm/Desktop/workspace/AI_Behavioral_Interview_Coach_Pencil/AI_Behavioral_Interview_CoachTests/RemoteCoachServiceTests.swift:130).
-2. Purchase verify/restore API path + idempotency:
-   [RemoteCoachServiceTests.swift](/Users/wxm/Desktop/workspace/AI_Behavioral_Interview_Coach_Pencil/AI_Behavioral_Interview_CoachTests/RemoteCoachServiceTests.swift:206), [RemoteCoachServiceTests.swift](/Users/wxm/Desktop/workspace/AI_Behavioral_Interview_Coach_Pencil/AI_Behavioral_Interview_CoachTests/RemoteCoachServiceTests.swift:234).
-3. Purchase transaction finished after backend verify:
-   [RemoteCoachServiceTests.swift](/Users/wxm/Desktop/workspace/AI_Behavioral_Interview_Coach_Pencil/AI_Behavioral_Interview_CoachTests/RemoteCoachServiceTests.swift:287).
-4. Concurrent start training route dedup regression covered:
-   [AppModel.swift](/Users/wxm/Desktop/workspace/AI_Behavioral_Interview_Coach_Pencil/AI_Behavioral_Interview_Coach/App/AppModel.swift:248), [AppModelTests.swift](/Users/wxm/Desktop/workspace/AI_Behavioral_Interview_Coach_Pencil/AI_Behavioral_Interview_CoachTests/AppModelTests.swift:52).
-5. iPhone core UI path smoke and record/submit/redo flow covered:
-   [HomeVisualSmokeTests.swift](/Users/wxm/Desktop/workspace/AI_Behavioral_Interview_Coach_Pencil/AI_Behavioral_Interview_CoachUITests/HomeVisualSmokeTests.swift:9), [MicrophoneRecordingUITests.swift](/Users/wxm/Desktop/workspace/AI_Behavioral_Interview_Coach_Pencil/AI_Behavioral_Interview_CoachUITests/MicrophoneRecordingUITests.swift:44), [MicrophoneRecordingUITests.swift](/Users/wxm/Desktop/workspace/AI_Behavioral_Interview_Coach_Pencil/AI_Behavioral_Interview_CoachUITests/MicrophoneRecordingUITests.swift:53).
-6. Privacy deletion flows exist in app model and mock regression tests:
-   [AppModel.swift](/Users/wxm/Desktop/workspace/AI_Behavioral_Interview_Coach_Pencil/AI_Behavioral_Interview_Coach/App/AppModel.swift:198), [AppModel.swift](/Users/wxm/Desktop/workspace/AI_Behavioral_Interview_Coach_Pencil/AI_Behavioral_Interview_Coach/App/AppModel.swift:232), [MockCoachServiceTests.swift](/Users/wxm/Desktop/workspace/AI_Behavioral_Interview_Coach_Pencil/AI_Behavioral_Interview_CoachTests/MockCoachServiceTests.swift:240), [AppModelTests.swift](/Users/wxm/Desktop/workspace/AI_Behavioral_Interview_Coach_Pencil/AI_Behavioral_Interview_CoachTests/AppModelTests.swift:218).
+## 2. Fixed blockers
 
-### 2.2 Gaps / not yet release-verifiable
+### B1 - Session abandon integration
 
-1. TestFlight sandbox gate evidence missing (required by QA gate):
-   [AI_Behavioral_Interview_Coach_QA_Acceptance_Test_Plan_v1.md](/Users/wxm/Desktop/workspace/AI_Behavioral_Interview_Coach_Pencil/docs/ios/AI_Behavioral_Interview_Coach_QA_Acceptance_Test_Plan_v1.md:123), [AI_Behavioral_Interview_Coach_QA_Acceptance_Test_Plan_v1.md](/Users/wxm/Desktop/workspace/AI_Behavioral_Interview_Coach_Pencil/docs/ios/AI_Behavioral_Interview_Coach_QA_Acceptance_Test_Plan_v1.md:1125), [2026-04-23-iphone-uat.md](/Users/wxm/Desktop/workspace/AI_Behavioral_Interview_Coach_Pencil/docs/superpowers/uat/2026-04-23-iphone-uat.md:36).
-2. Session abandon path missing in service contract despite API contract:
-   [openapi.yaml](/Users/wxm/Desktop/workspace/AI_Behavioral_Interview_Coach_Pencil/docs/api/openapi.yaml:171), [CoachService.swift](/Users/wxm/Desktop/workspace/AI_Behavioral_Interview_Coach_Pencil/AI_Behavioral_Interview_Coach/Services/CoachService.swift:37).
-3. Analytics suite (QA-AN-001~008) lacks implementation-level evidence in app code:
-   [AI_Behavioral_Interview_Coach_QA_Acceptance_Test_Plan_v1.md](/Users/wxm/Desktop/workspace/AI_Behavioral_Interview_Coach_Pencil/docs/ios/AI_Behavioral_Interview_Coach_QA_Acceptance_Test_Plan_v1.md:800), [AI_Behavioral_Interview_Coach_QA_Acceptance_Test_Plan_v1.md](/Users/wxm/Desktop/workspace/AI_Behavioral_Interview_Coach_Pencil/docs/ios/AI_Behavioral_Interview_Coach_QA_Acceptance_Test_Plan_v1.md:870).
-4. Several P1/P0 items remain “simulator evidence only”, not “staging/TestFlight evidence”.
+Status: **Fixed and covered by unit tests**.
 
-## 3. Blocking list (release gate impact)
+Implementation evidence:
 
-1. **B1 - Missing abandon integration (P1 risk to session/credit correctness)**
-   Impact: QA-SESSION-004/005 cannot be closed with client-side evidence; stuck session and credit-release behavior stays partially unverified.
-2. **B2 - Missing analytics implementation evidence (P0/P1 release signal risk)**
-   Impact: QA-AN suite cannot be marked pass, reducing confidence in funnel and error observability.
-3. **B3 - Missing TestFlight gate evidence (hard gate fail)**
-   Impact: fails documented entry condition for release readiness.
+1. `CoachService` now exposes `abandonSession(sessionID:)`.
+2. `RemoteCoachService` posts `POST /training-sessions/{session_id}/abandon` with an `Idempotency-Key`.
+3. `MockCoachService` releases the active session only for pre-feedback states and rejects abandon after feedback is available.
+4. `AppModel.abandonCurrentSession()` routes the user home, clears the local active session, refreshes Home, and tracks `training_session_abandoned`.
+5. Training back-home actions call the abandon path only for pre-feedback sessions; feedback, completed, abandoned, and failed states route Home without calling abandon.
 
-## 4. Recommended execution plan (single recommended path)
+Test evidence:
 
-Recommended path:
-1. Implement `abandonSession(sessionID:)` in `CoachService` + `RemoteCoachService` + `AppModel` call site (only pre-feedback states), add unit tests for endpoint path/idempotency/error map.
-2. Implement minimum analytics event pipeline for QA-AN required events only, plus unit tests validating event emission triggers and privacy field filtering.
-3. Run one focused iPhone regression set on simulator, then produce a **TestFlight sandbox evidence runbook + execution record** for QA-E2E and billing paths.
-4. Re-run this audit doc with status updates and change verdict to Ready only after B1/B2/B3 close.
+1. `RemoteCoachServiceTests.testAbandonSessionPostsEndpointWithIdempotencyKey`
+2. `MockCoachServiceTests.testAbandonSessionBeforeFeedbackReleasesActiveSessionAndKeepsCredit`
+3. `MockCoachServiceTests.testAbandonSessionAfterFeedbackIsRejected`
+4. `AppModelTests.testAbandonCurrentSessionReleasesSessionAndRoutesHome`
+5. `AppModelTests.testAbandonCurrentTerminalSessionRoutesHomeWithoutCallingAbandon`
 
-Why this path:
-1. It closes two code-level blockers first (B1/B2), so final TestFlight pass is not wasted on known gaps.
-2. It aligns with documented QA gate order and minimizes re-test churn.
+### B2 - Analytics implementation evidence
 
-## 5. Current release recommendation
+Status: **Fixed for client-side v1 release evidence and covered by unit tests**.
 
-Current recommendation: **Do not sign off release gate yet**.
-Next milestone recommendation: close B1+B2 in code/tests first, then execute TestFlight sandbox verification as final gate.
+Implementation evidence:
+
+1. `AnalyticsService`, `AnalyticsSink`, and `AnalyticsPipeline` define a testable client event pipeline.
+2. `AnalyticsPrivacyGuard` drops events containing forbidden content fields such as resume text, transcript text, feedback text, source snippets, Apple transaction payloads, or app account tokens.
+3. `AppModel` emits the minimum QA-required client events for bootstrap, Home exposure, resume upload/parse outcomes, training funnel, recording starts, answer submits, feedback/redo exposure, completion, abandon, purchase, restore, deletion, and API errors.
+4. Server-backed events are only emitted after service success paths in the client model.
+5. Feedback and redo review viewed events are emitted from explicit view exposure hooks, not merely from API completion.
+
+Test evidence:
+
+1. `AI_Behavioral_Interview_CoachTests.testAnalyticsPipelineRejectsForbiddenFields`
+2. `AI_Behavioral_Interview_CoachTests.testAnalyticsPipelineAcceptsAllowedEventWithSchemaVersion`
+3. `AppModelTests.testBootstrapTracksHomeViewedWithPrimaryState`
+4. `AppModelTests.testTrainingFunnelTracksServerBackedCompletionInOrder`
+5. `AppModelTests.testFeedbackViewedIsOnlyTrackedAfterExplicitViewExposure`
+6. `AppModelTests.testPurchaseVerifiedIsNotTrackedWhenPurchaseFails`
+
+## 3. Remaining release gate
+
+### B3 - TestFlight sandbox evidence
+
+Status: **Still pending external execution**.
+
+The QA plan requires the end-to-end main path to pass in TestFlight sandbox 5 consecutive times. Local simulator and unit tests cannot satisfy this gate because it depends on a signed TestFlight build, StoreKit sandbox, real network conditions, and staging backend infrastructure.
+
+Evidence artifact:
+
+`docs/superpowers/uat/2026-04-24-testflight-sandbox-release-gate.md`
+
+Release sign-off rule:
+
+1. Keep this branch as **not release-signed** until the TestFlight record has 5 consecutive passing runs.
+2. If any run fails, fix the defect, reset the consecutive-pass counter, and restart the 5-run sequence.
+3. Attach backend request IDs, analytics event IDs, StoreKit sandbox transaction references, and screenshots/log snippets for each run.
+
+## 4. Verification run
+
+Latest local verification:
+
+```text
+xcodebuild test \
+  -project AI_Behavioral_Interview_Coach.xcodeproj \
+  -scheme AI_Behavioral_Interview_Coach \
+  -destination 'platform=iOS Simulator,id=F592A705-BDE3-495D-9F13-1134BC4F31DD' \
+  -only-testing:AI_Behavioral_Interview_CoachTests
+```
+
+Result: **passed**. 72 unit tests executed, 0 failures.
+
+```text
+xcodebuild test \
+  -project AI_Behavioral_Interview_Coach.xcodeproj \
+  -scheme AI_Behavioral_Interview_Coach \
+  -destination 'platform=iOS Simulator,id=F592A705-BDE3-495D-9F13-1134BC4F31DD' \
+  -only-testing:AI_Behavioral_Interview_CoachUITests
+```
+
+Result: **passed**. 5 UI tests executed, 0 failures.
+
+Coverage note: this validates the code-level blockers and regression tests. It does not replace the TestFlight sandbox release gate.
+
+## 5. Release recommendation
+
+Recommended next action: merge the code fixes after review, then execute the TestFlight sandbox gate from the runbook before tagging a release.
