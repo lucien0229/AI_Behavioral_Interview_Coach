@@ -70,7 +70,7 @@ final class AppModel {
         do {
             let session = try await service.createTrainingSession(focus: focus)
             currentSession = session
-            navigationPath.append(.trainingSession(sessionID: session.id))
+            routeToTrainingSession(id: session.id)
             homeSnapshot = try await service.home()
         } catch CoachServiceError.noCredits {
             activeSheet = .paywall
@@ -82,7 +82,7 @@ final class AppModel {
                     return
                 }
                 currentSession = activeSession
-                navigationPath.append(.trainingSession(sessionID: activeSession.id))
+                routeToTrainingSession(id: activeSession.id)
             } catch {
                 activeSheet = .apiError("We could not start this practice round.")
             }
@@ -215,5 +215,13 @@ final class AppModel {
         } catch {
             activeSheet = .apiError("We could not delete your app data.")
         }
+    }
+
+    private func routeToTrainingSession(id: String) {
+        let route = AppRoute.trainingSession(sessionID: id)
+        guard navigationPath.last != route else {
+            return
+        }
+        navigationPath.append(route)
     }
 }

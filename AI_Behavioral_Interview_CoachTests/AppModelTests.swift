@@ -34,6 +34,27 @@ final class AppModelTests: XCTestCase {
     }
 
     @MainActor
+    func testConcurrentStartTrainingRoutesOnlyOnce() async throws {
+        let service = MockCoachService(processingDelayNanoseconds: 50_000_000)
+        _ = try await service.bootstrap()
+        _ = try await service.uploadResume(fileName: "alex_pm_resume.pdf")
+        let model = AppModel(service: service)
+
+        let firstStart = Task { @MainActor in
+            await model.startTraining()
+        }
+        let secondStart = Task { @MainActor in
+            await model.startTraining()
+        }
+
+        await firstStart.value
+        await secondStart.value
+
+        let route = try XCTUnwrap(model.currentSession.map { AppRoute.trainingSession(sessionID: $0.id) })
+        XCTAssertEqual(model.navigationPath, [route])
+    }
+
+    @MainActor
     func testDeleteAllDataClearsTransientAppState() async throws {
         let service = MockCoachService(processingDelayNanoseconds: 0)
         _ = try await service.bootstrap()
