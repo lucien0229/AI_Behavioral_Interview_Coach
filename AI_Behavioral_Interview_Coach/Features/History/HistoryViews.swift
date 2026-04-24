@@ -335,6 +335,7 @@ struct RouteNavBar: View {
                     .frame(width: 28, height: 28)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Back")
 
             Text(title)
                 .font(.system(size: 17, weight: .semibold))

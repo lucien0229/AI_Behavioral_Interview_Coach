@@ -8,7 +8,11 @@ struct HomeRootView: View {
 
         NavigationStack(path: $appModel.navigationPath) {
             HomeView()
-                .navigationDestination(for: AppRoute.self, destination: destinationView)
+                .navigationDestination(for: AppRoute.self) { route in
+                    destinationView(for: route)
+                        .routeChromeHidden()
+                }
+                .routeChromeHidden()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(CoachColor.canvas.ignoresSafeArea())
@@ -49,6 +53,18 @@ struct HomeRootView: View {
         case .apiError(let message):
             APIErrorSheet(message: message)
         }
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func routeChromeHidden() -> some View {
+        #if os(iOS)
+        navigationBarBackButtonHidden(true)
+            .toolbar(.hidden, for: .navigationBar)
+        #else
+        self
+        #endif
     }
 }
 
@@ -390,6 +406,7 @@ private struct HomeHeaderView: View {
                     .clipShape(RoundedRectangle(cornerRadius: CoachRadius.standard, style: .continuous))
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Settings")
         }
     }
 }

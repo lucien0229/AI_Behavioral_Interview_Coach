@@ -19,9 +19,17 @@ final class HomeVisualSmokeTests: XCTestCase {
 
         addScreenshot(named: "01-home-no-resume")
 
+        app.buttons["Settings"].tap()
+        XCTAssertTrue(app.staticTexts["Data & privacy"].waitForExistence(timeout: 3))
+        XCTAssertEqual(app.buttons.matching(identifier: "Back").count, 1)
+        addScreenshot(named: "24-settings")
+        app.buttons["Back"].tap()
+        XCTAssertTrue(app.staticTexts["Interview Coach"].waitForExistence(timeout: 3))
+
         app.buttons["Privacy"].tap()
         XCTAssertTrue(app.staticTexts["Privacy notice"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["What we use"].exists)
+        XCTAssertEqual(app.buttons.matching(identifier: "Back").count, 1)
         addScreenshot(named: "25-privacy-notice")
 
         app.launch()
@@ -31,6 +39,7 @@ final class HomeVisualSmokeTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Upload your resume"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["Choose file"].exists)
         XCTAssertTrue(app.buttons["Privacy notice"].exists)
+        XCTAssertEqual(app.buttons.matching(identifier: "Back").count, 1)
         addScreenshot(named: "06-resume-upload")
     }
 

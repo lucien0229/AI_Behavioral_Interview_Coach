@@ -19,6 +19,8 @@
 - Added XCUITest foreground coverage for redo submission, completed result, and home history summary
 - Restored the recorded-answer and follow-up answer cards to the `.pen` horizontal primary/secondary action row
 - Aligned the completed result screen to the `.pen` summary-first hierarchy, with redo review, still-missing guidance, next attempt, history notice, and first-viewport CTAs
+- Removed the duplicated system navigation back layer from routed pages while keeping the custom `.pen` back row
+- Added XCUITest assertions that Settings, Privacy Notice, and Resume Upload expose exactly one `Back` button
 
 ## Automated checks
 
@@ -26,6 +28,8 @@
 - `xcrun swiftc -typecheck $(rg --files AI_Behavioral_Interview_Coach -g'*.swift')` passed
 - `xcodebuild -quiet test -scheme AI_Behavioral_Interview_Coach -destination 'id=F592A705-BDE3-495D-9F13-1134BC4F31DD' -resultBundlePath /tmp/aibic-iphone-ui.xcresult` passed
 - Final cleanup re-run: `xcodebuild -quiet test -scheme AI_Behavioral_Interview_Coach -destination 'id=F592A705-BDE3-495D-9F13-1134BC4F31DD'` passed
+- Route back-layer regression check: `xcodebuild -quiet test -scheme AI_Behavioral_Interview_Coach -destination 'id=F592A705-BDE3-495D-9F13-1134BC4F31DD' -only-testing:AI_Behavioral_Interview_CoachUITests/HomeVisualSmokeTests/testHomePrivacyAndResumeEntryRenderOnIPhone -resultBundlePath /tmp/aibic-back-nav.xcresult` passed
+- Full route cleanup re-run: `xcodebuild -quiet test -scheme AI_Behavioral_Interview_Coach -destination 'id=F592A705-BDE3-495D-9F13-1134BC4F31DD'` passed
 - Result bundle summary: 44 tests passed, 0 failed, 0 skipped
 - UI screenshot attachments exported to `/tmp/aibic-iphone-ui-attachments`
 
@@ -35,6 +39,7 @@
 - Install and launch succeeded after rebuild
 - Home header text now renders as `Interview Coach` without truncation
 - Foreground UI automation successfully navigates Home -> Privacy Notice and Home -> Resume Upload
+- Foreground UI automation successfully navigates Home -> Settings and confirms the custom back row is the only exposed back control
 - Full-screen screenshot output now matches iPhone geometry instead of the previous card-like capture
 - Microphone allow path verifies the system permission prompt, the first-answer recording controls, and the ready-to-submit state
 - Microphone deny path verifies the system permission prompt and the in-app microphone guidance sheet
@@ -49,6 +54,7 @@ The previous `simctl io ... screenshot` and UI screenshot output showed the app 
 Current local capture artifact:
 
 - Home: `/tmp/aibic-iphone-ui-attachments/F7249716-E033-4DCE-970D-100F3664D60A.png`
+- Settings: `/tmp/aibic-back-nav-attachments/BAAE3CF1-4FA6-4AEC-9B5F-F6E8EC4DB7A8.png`
 - Privacy Notice: `/tmp/aibic-iphone-ui-attachments/EA99F584-BB13-4B1D-9BDA-3BBB3A8B2AAD.png`
 - Resume Upload: `/tmp/aibic-iphone-ui-attachments/E68A0B06-91DC-4F83-A3BA-118E7E442203.png`
 - First Answer Recorded: `/tmp/aibic-iphone-ui-attachments/A2291D43-4C8C-4DD3-B0AD-B8D5AA962CB6.png`
