@@ -16,15 +16,6 @@ struct AI_Behavioral_Interview_CoachApp: App {
     }
 
     private static func makeAppModel() -> AppModel {
-        let environment = ProcessInfo.processInfo.environment
-        let hasSeededResume = environment["AIBIC_UI_TEST_READY_RESUME"] == "1"
-        let processingDelayNanoseconds: UInt64 = environment["AIBIC_UI_TEST_FAST"] == "1" ? 0 : 350_000_000
-
-        return AppModel(
-            service: MockCoachService(
-                processingDelayNanoseconds: processingDelayNanoseconds,
-                initialActiveResume: hasSeededResume ? .readyUsable(fileName: "alex_pm_resume.pdf") : nil
-            )
-        )
+        AppModel(service: CoachServiceFactory.makeService())
     }
 }
