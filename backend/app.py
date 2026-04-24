@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import sqlite3
 from dataclasses import dataclass, field
@@ -1058,4 +1059,13 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-app = create_app()
+def create_configured_app() -> FastAPI:
+    from backend.config import create_providers_from_environment
+
+    return create_app(
+        database_path=os.getenv("AIBIC_SQLITE_DATABASE_PATH"),
+        providers=create_providers_from_environment(),
+    )
+
+
+app = create_configured_app()
