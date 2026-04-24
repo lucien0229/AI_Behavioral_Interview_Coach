@@ -105,8 +105,8 @@ final class AppModelTests: XCTestCase {
         _ = try await service.bootstrap()
         _ = try await service.uploadResume(fileName: "alex_pm_resume.pdf")
         var session = try await service.createTrainingSession(focus: .ownership)
-        session = try await service.submitFirstAnswer(sessionID: session.id)
-        session = try await service.submitFollowupAnswer(sessionID: session.id)
+        session = try await service.submitFirstAnswer(sessionID: session.id, recording: .testFixture)
+        session = try await service.submitFollowupAnswer(sessionID: session.id, recording: .testFixture)
         session = try await service.skipRedo(sessionID: session.id)
 
         let model = AppModel(service: service)

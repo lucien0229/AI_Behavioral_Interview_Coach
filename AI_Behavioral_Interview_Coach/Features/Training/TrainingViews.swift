@@ -49,8 +49,8 @@ struct TrainingSessionView: View {
                     EmptyView()
                 },
                 onBackHome: dismissToHome,
-                onSubmit: {
-                    await appModel.submitFirstAnswer()
+                onSubmit: { recording in
+                    await appModel.submitFirstAnswer(recording: recording)
                 }
             )
         case .followupAnswer:
@@ -65,8 +65,8 @@ struct TrainingSessionView: View {
                     OriginalQuestionCard(question: session.questionText)
                 },
                 onBackHome: dismissToHome,
-                onSubmit: {
-                    await appModel.submitFollowupAnswer()
+                onSubmit: { recording in
+                    await appModel.submitFollowupAnswer(recording: recording)
                 }
             )
         case .feedback:
@@ -86,8 +86,8 @@ struct TrainingSessionView: View {
                 onBack: {
                     showingRedoAnswer = false
                 },
-                onSubmit: {
-                    await appModel.submitRedo()
+                onSubmit: { recording in
+                    await appModel.submitRedo(recording: recording)
                 },
                 onSubmitFinished: {
                     showingRedoAnswer = false
@@ -202,7 +202,7 @@ private struct RecordingPromptView<Supplement: View>: View {
     let submitTitle: String
     let topSupplement: () -> Supplement
     let onBackHome: () -> Void
-    let onSubmit: () async -> Bool
+    let onSubmit: (RecordedAudio) async -> Bool
 
     init(
         navTitle: String,
@@ -213,7 +213,7 @@ private struct RecordingPromptView<Supplement: View>: View {
         submitTitle: String,
         @ViewBuilder topSupplement: @escaping () -> Supplement,
         onBackHome: @escaping () -> Void,
-        onSubmit: @escaping () async -> Bool
+        onSubmit: @escaping (RecordedAudio) async -> Bool
     ) {
         self.navTitle = navTitle
         self.focus = focus
@@ -414,7 +414,12 @@ private struct RecordingPromptView<Supplement: View>: View {
         isSubmitting = true
         defer { isSubmitting = false }
 
-        if await onSubmit() {
+        guard case .recorded(let url) = recorder.recordingState else {
+            return
+        }
+
+        let recording = RecordedAudio(fileURL: url, durationSeconds: recorder.elapsedSeconds)
+        if await onSubmit(recording) {
             recorder.cleanupRecording()
         }
     }
@@ -483,7 +488,7 @@ private struct RedoAnswerView: View {
 
     let session: TrainingSession
     let onBack: () -> Void
-    let onSubmit: () async -> Bool
+    let onSubmit: (RecordedAudio) async -> Bool
     let onSubmitFinished: () -> Void
 
     var body: some View {
@@ -670,7 +675,12 @@ private struct RedoAnswerView: View {
         isSubmitting = true
         defer { isSubmitting = false }
 
-        if await onSubmit() {
+        guard case .recorded(let url) = recorder.recordingState else {
+            return
+        }
+
+        let recording = RecordedAudio(fileURL: url, durationSeconds: recorder.elapsedSeconds)
+        if await onSubmit(recording) {
             recorder.cleanupRecording()
             onSubmitFinished()
         }
