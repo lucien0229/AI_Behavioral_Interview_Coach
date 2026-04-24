@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable
@@ -81,12 +82,49 @@ class AppUser:
     purchases: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
+class SQLiteStateStore:
+    def __init__(self, database_path: str):
+        self.database_path = database_path
+        self._ensure_schema()
+
+    def load(self) -> dict[str, Any] | None:
+        with sqlite3.connect(self.database_path) as connection:
+            row = connection.execute("select value from state where key = ?", ("backend_state",)).fetchone()
+        if not row:
+            return None
+        return json.loads(row[0])
+
+    def save(self, snapshot: dict[str, Any]) -> None:
+        with sqlite3.connect(self.database_path) as connection:
+            connection.execute(
+                """
+                insert into state(key, value) values(?, ?)
+                on conflict(key) do update set value = excluded.value
+                """,
+                ("backend_state", json.dumps(snapshot, separators=(",", ":"))),
+            )
+
+    def _ensure_schema(self) -> None:
+        with sqlite3.connect(self.database_path) as connection:
+            connection.execute(
+                """
+                create table if not exists state(
+                    key text primary key,
+                    value text not null
+                )
+                """
+            )
+
+
 class BackendState:
-    def __init__(self) -> None:
+    def __init__(self, store: SQLiteStateStore | None = None) -> None:
+        self.store = store
         self.users_by_installation: dict[str, AppUser] = {}
         self.users_by_token: dict[str, AppUser] = {}
         self.idempotency_records: dict[tuple[str, str], IdempotencyRecord] = {}
         self.counters: dict[str, int] = {}
+        if self.store:
+            self.restore(self.store.load())
 
     def next_id(self, prefix: str) -> str:
         self.counters[prefix] = self.counters.get(prefix, 0) + 1
@@ -164,6 +202,7 @@ class BackendState:
             status_code=reply.status_code,
             body=reply.body,
         )
+        self.persist()
         return self.as_response(reply)
 
     def idempotency_signature(self, request: Request, raw_body: bytes) -> str:
@@ -197,9 +236,109 @@ class BackendState:
         self.users_by_token[user.access_token] = user
         return user
 
+    def persist(self) -> None:
+        if self.store:
+            self.store.save(self.snapshot())
 
-def create_app() -> FastAPI:
-    state = BackendState()
+    def snapshot(self) -> dict[str, Any]:
+        return {
+            "counters": self.counters,
+            "users": [serialize_user(user) for user in self.users_by_installation.values()],
+            "idempotency_records": [
+                {
+                    "scope": scope,
+                    "key": key,
+                    "signature": record.signature,
+                    "status_code": record.status_code,
+                    "body": record.body,
+                }
+                for (scope, key), record in self.idempotency_records.items()
+            ],
+        }
+
+    def restore(self, snapshot: dict[str, Any] | None) -> None:
+        if not snapshot:
+            return
+
+        self.counters = {key: int(value) for key, value in snapshot.get("counters", {}).items()}
+        for raw_user in snapshot.get("users", []):
+            user = deserialize_user(raw_user)
+            self.users_by_installation[user.installation_id] = user
+            self.users_by_token[user.access_token] = user
+
+        for raw_record in snapshot.get("idempotency_records", []):
+            self.idempotency_records[(raw_record["scope"], raw_record["key"])] = IdempotencyRecord(
+                signature=raw_record["signature"],
+                status_code=int(raw_record["status_code"]),
+                body=raw_record["body"],
+            )
+
+
+def serialize_user(user: AppUser) -> dict[str, Any]:
+    return {
+        "app_user_id": user.app_user_id,
+        "installation_id": user.installation_id,
+        "access_token": user.access_token,
+        "app_account_token": user.app_account_token,
+        "free_session_credits_remaining": user.free_session_credits_remaining,
+        "paid_session_credits_remaining": user.paid_session_credits_remaining,
+        "reserved_session_credits": user.reserved_session_credits,
+        "active_resume_id": user.active_resume_id,
+        "active_session_id": user.active_session_id,
+        "resumes": {resume_id: vars(resume) for resume_id, resume in user.resumes.items()},
+        "sessions": {session_id: vars(session) for session_id, session in user.sessions.items()},
+        "purchases": user.purchases,
+    }
+
+
+def deserialize_user(raw_user: dict[str, Any]) -> AppUser:
+    user = AppUser(
+        app_user_id=raw_user["app_user_id"],
+        installation_id=raw_user["installation_id"],
+        access_token=raw_user["access_token"],
+        app_account_token=raw_user["app_account_token"],
+        free_session_credits_remaining=int(raw_user.get("free_session_credits_remaining", 2)),
+        paid_session_credits_remaining=int(raw_user.get("paid_session_credits_remaining", 0)),
+        reserved_session_credits=int(raw_user.get("reserved_session_credits", 0)),
+        active_resume_id=raw_user.get("active_resume_id"),
+        active_session_id=raw_user.get("active_session_id"),
+        purchases=raw_user.get("purchases", {}),
+    )
+    user.resumes = {
+        resume_id: ResumeRecord(
+            resume_id=resume["resume_id"],
+            file_name=resume["file_name"],
+            status=resume.get("status", "ready"),
+            profile_quality_status=resume.get("profile_quality_status", "usable"),
+            source_language=resume.get("source_language", "en"),
+            deleted=bool(resume.get("deleted", False)),
+        )
+        for resume_id, resume in raw_user.get("resumes", {}).items()
+    }
+    user.sessions = {
+        session_id: TrainingSessionRecord(
+            session_id=session["session_id"],
+            training_focus=session["training_focus"],
+            question_text=session["question_text"],
+            status=session.get("status", "question_generating"),
+            follow_up_text=session.get("follow_up_text"),
+            feedback=session.get("feedback"),
+            redo_review=session.get("redo_review"),
+            completion_reason=session.get("completion_reason"),
+            completed_at=session.get("completed_at"),
+            credit_state=session.get("credit_state", "reserved"),
+            billing_source=session.get("billing_source", "free"),
+            reserved_credit_source=session.get("reserved_credit_source"),
+            redo_submitted=bool(session.get("redo_submitted", False)),
+            deleted=bool(session.get("deleted", False)),
+        )
+        for session_id, session in raw_user.get("sessions", {}).items()
+    }
+    return user
+
+
+def create_app(database_path: str | None = None) -> FastAPI:
+    state = BackendState(store=SQLiteStateStore(database_path) if database_path else None)
     app = FastAPI(title="AI Behavioral Interview Coach API", version="1.1.0-mvp")
 
     @app.post(f"{API_PREFIX}/app-users/bootstrap")
@@ -341,6 +480,7 @@ def create_app() -> FastAPI:
             user = state.authenticate(request)
             session = require_session(user, session_id)
             advance_session_on_read(user, session)
+            state.persist()
             return state.as_response(state.success(session_detail_payload(session)))
         except APIError as error:
             return state.as_response(state.failure(error))
