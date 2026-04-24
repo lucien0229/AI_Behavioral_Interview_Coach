@@ -34,6 +34,21 @@ final class AppModelTests: XCTestCase {
     }
 
     @MainActor
+    func testStartTrainingShowsSpecificGuidanceForUnusableResume() async throws {
+        let service = PollingCoachService(createTrainingError: .resumeProfileUnusable)
+        let model = AppModel(service: service)
+
+        await model.startTraining()
+
+        XCTAssertEqual(
+            model.activeSheet,
+            AppSheet.apiError("Your resume does not include enough interview-ready experience. Upload a more detailed resume to start training.")
+        )
+        XCTAssertNil(model.currentSession)
+        XCTAssertTrue(model.navigationPath.isEmpty)
+    }
+
+    @MainActor
     func testConcurrentStartTrainingRoutesOnlyOnce() async throws {
         let service = MockCoachService(processingDelayNanoseconds: 50_000_000)
         _ = try await service.bootstrap()
@@ -100,7 +115,7 @@ final class AppModelTests: XCTestCase {
         let model = AppModel(service: service)
         model.currentSession = waitingSession
 
-        let didSubmit = await model.submitFirstAnswer(recording: .testFixture)
+        let didSubmit = await model.submitFirstAnswer(recording: RecordedAudio.testFixture)
 
         let sessionRequestIDs = await service.sessionRequestIDs()
         XCTAssertTrue(didSubmit)
@@ -146,6 +161,57 @@ final class AppModelTests: XCTestCase {
         XCTAssertTrue(didSubmit)
         XCTAssertEqual(model.currentSession?.status, .completed)
         XCTAssertEqual(sessionRequestIDs, [redoSession.id])
+    }
+
+    @MainActor
+    func testTranscriptQualityErrorAsksForFirstAnswerRecordingAgain() async throws {
+        let waitingSession = TrainingSession.fixture(status: .waitingFirstAnswer)
+        let service = PollingCoachService(firstAnswerError: .transcriptQualityTooLow)
+        let model = AppModel(service: service)
+        model.currentSession = waitingSession
+
+        let didSubmit = await model.submitFirstAnswer(recording: .testFixture)
+
+        XCTAssertFalse(didSubmit)
+        XCTAssertEqual(model.currentSession, waitingSession)
+        XCTAssertEqual(
+            model.activeSheet,
+            AppSheet.apiError("We could not use that recording. Record again in English with a clear, complete answer.")
+        )
+    }
+
+    @MainActor
+    func testTranscriptionFailureAsksForFollowupRecordingAgain() async throws {
+        let waitingSession = TrainingSession.fixture(status: .waitingFollowupAnswer)
+        let service = PollingCoachService(followupAnswerError: .transcriptionFailed)
+        let model = AppModel(service: service)
+        model.currentSession = waitingSession
+
+        let didSubmit = await model.submitFollowupAnswer(recording: RecordedAudio.testFixture)
+
+        XCTAssertFalse(didSubmit)
+        XCTAssertEqual(model.currentSession, waitingSession)
+        XCTAssertEqual(
+            model.activeSheet,
+            AppSheet.apiError("We could not transcribe that recording. Record again in a quieter place.")
+        )
+    }
+
+    @MainActor
+    func testAudioUploadFailureKeepsRedoRecordingAvailableForRetry() async throws {
+        let redoSession = TrainingSession.fixture(status: .redoAvailable)
+        let service = PollingCoachService(redoError: .audioUploadFailed)
+        let model = AppModel(service: service)
+        model.currentSession = redoSession
+
+        let didSubmit = await model.submitRedo(recording: RecordedAudio.testFixture)
+
+        XCTAssertFalse(didSubmit)
+        XCTAssertEqual(model.currentSession, redoSession)
+        XCTAssertEqual(
+            model.activeSheet,
+            AppSheet.apiError("We could not upload that recording. Check your connection and try submitting again.")
+        )
     }
 
     @MainActor
@@ -220,6 +286,10 @@ private actor PollingCoachService: CoachService {
     private let firstAnswerSession: TrainingSession?
     private let followupAnswerSession: TrainingSession?
     private let redoSession: TrainingSession?
+    private let createTrainingError: CoachServiceError?
+    private let firstAnswerError: CoachServiceError?
+    private let followupAnswerError: CoachServiceError?
+    private let redoError: CoachServiceError?
     private var queuedSessionResponses: [TrainingSession]
     private var requestedSessionIDs: [String] = []
 
@@ -228,12 +298,20 @@ private actor PollingCoachService: CoachService {
         firstAnswerSession: TrainingSession? = nil,
         followupAnswerSession: TrainingSession? = nil,
         redoSession: TrainingSession? = nil,
+        createTrainingError: CoachServiceError? = nil,
+        firstAnswerError: CoachServiceError? = nil,
+        followupAnswerError: CoachServiceError? = nil,
+        redoError: CoachServiceError? = nil,
         sessionResponses: [TrainingSession] = []
     ) {
         self.createdSession = createdSession
         self.firstAnswerSession = firstAnswerSession
         self.followupAnswerSession = followupAnswerSession
         self.redoSession = redoSession
+        self.createTrainingError = createTrainingError
+        self.firstAnswerError = firstAnswerError
+        self.followupAnswerError = followupAnswerError
+        self.redoError = redoError
         queuedSessionResponses = sessionResponses
     }
 
@@ -262,6 +340,10 @@ private actor PollingCoachService: CoachService {
     }
 
     func createTrainingSession(focus: TrainingFocus?) async throws -> TrainingSession {
+        if let createTrainingError {
+            throw createTrainingError
+        }
+
         guard let createdSession else {
             throw CoachServiceError.mockFailure(message: "Missing created session")
         }
@@ -277,6 +359,10 @@ private actor PollingCoachService: CoachService {
     }
 
     func submitFirstAnswer(sessionID: String, recording: RecordedAudio) async throws -> TrainingSession {
+        if let firstAnswerError {
+            throw firstAnswerError
+        }
+
         guard let firstAnswerSession else {
             throw CoachServiceError.mockFailure(message: "Missing first answer session")
         }
@@ -284,6 +370,10 @@ private actor PollingCoachService: CoachService {
     }
 
     func submitFollowupAnswer(sessionID: String, recording: RecordedAudio) async throws -> TrainingSession {
+        if let followupAnswerError {
+            throw followupAnswerError
+        }
+
         guard let followupAnswerSession else {
             throw CoachServiceError.mockFailure(message: "Missing follow-up answer session")
         }
@@ -291,6 +381,10 @@ private actor PollingCoachService: CoachService {
     }
 
     func submitRedo(sessionID: String, recording: RecordedAudio) async throws -> TrainingSession {
+        if let redoError {
+            throw redoError
+        }
+
         guard let redoSession else {
             throw CoachServiceError.mockFailure(message: "Missing redo session")
         }

@@ -78,6 +78,8 @@ final class AppModel {
             return
         } catch CoachServiceError.noCredits {
             activeSheet = .paywall
+        } catch CoachServiceError.resumeProfileUnusable {
+            activeSheet = .apiError("Your resume does not include enough interview-ready experience. Upload a more detailed resume to start training.")
         } catch CoachServiceError.activeSessionExists {
             do {
                 homeSnapshot = try await service.home()
@@ -120,8 +122,7 @@ final class AppModel {
         } catch is CancellationError {
             return false
         } catch {
-            activeSheet = .apiError("We could not submit your answer. Please try again.")
-            return false
+            return handleRecordingSubmitFailure(error, fallbackMessage: "We could not submit your answer. Please try again.")
         }
     }
 
@@ -139,8 +140,7 @@ final class AppModel {
         } catch is CancellationError {
             return false
         } catch {
-            activeSheet = .apiError("We could not submit your follow-up answer. Please try again.")
-            return false
+            return handleRecordingSubmitFailure(error, fallbackMessage: "We could not submit your follow-up answer. Please try again.")
         }
     }
 
@@ -155,8 +155,7 @@ final class AppModel {
         } catch is CancellationError {
             return false
         } catch {
-            activeSheet = .apiError("We could not evaluate your redo. Your original feedback is saved.")
-            return false
+            return handleRecordingSubmitFailure(error, fallbackMessage: "We could not evaluate your redo. Your original feedback is saved.")
         }
     }
 
@@ -246,6 +245,27 @@ final class AppModel {
             return
         }
         navigationPath.append(route)
+    }
+
+    private func handleRecordingSubmitFailure(_ error: Error, fallbackMessage: String) -> Bool {
+        if let coachError = error as? CoachServiceError {
+            switch coachError {
+            case .transcriptQualityTooLow:
+                activeSheet = .apiError("We could not use that recording. Record again in English with a clear, complete answer.")
+                return false
+            case .transcriptionFailed:
+                activeSheet = .apiError("We could not transcribe that recording. Record again in a quieter place.")
+                return false
+            case .audioUploadFailed:
+                activeSheet = .apiError("We could not upload that recording. Check your connection and try submitting again.")
+                return false
+            default:
+                break
+            }
+        }
+
+        activeSheet = .apiError(fallbackMessage)
+        return false
     }
 
     private func pollSessionUntilDisplayable(_ session: TrainingSession) async throws -> TrainingSession {

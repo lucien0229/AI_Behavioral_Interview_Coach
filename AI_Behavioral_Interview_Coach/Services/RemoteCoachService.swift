@@ -379,8 +379,12 @@ private extension RemoteCoachService {
         switch error.code {
         case "UNSUPPORTED_FILE_TYPE":
             return .unsupportedFileType
-        case "RESUME_NOT_READY", "ACTIVE_RESUME_REQUIRED", "RESUME_PROFILE_UNUSABLE":
+        case "ACTIVE_RESUME_REQUIRED", "RESUME_NOT_READY":
             return .resumeNotReady
+        case "RESUME_PARSE_FAILED":
+            return .resumeParseFailed
+        case "RESUME_PROFILE_UNUSABLE":
+            return .resumeProfileUnusable
         case "INSUFFICIENT_SESSION_CREDITS":
             return .noCredits
         case "ACTIVE_SESSION_EXISTS":
@@ -389,6 +393,18 @@ private extension RemoteCoachService {
             return .sessionNotFound
         case "TRAINING_SESSION_NOT_READY":
             return .invalidSessionState
+        case "IDEMPOTENCY_CONFLICT":
+            return .idempotencyConflict
+        case "AUDIO_UPLOAD_FAILED":
+            return .audioUploadFailed
+        case "TRANSCRIPTION_FAILED":
+            return .transcriptionFailed
+        case "TRANSCRIPT_QUALITY_TOO_LOW":
+            return .transcriptQualityTooLow
+        case "AI_GENERATION_FAILED", "AI_OUTPUT_VALIDATION_FAILED":
+            return .aiGenerationFailed
+        case "APPLE_PURCHASE_VERIFICATION_FAILED":
+            return .purchaseVerificationFailed
         default:
             return .mockFailure(message: error.message)
         }
