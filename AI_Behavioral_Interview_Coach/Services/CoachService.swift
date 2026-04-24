@@ -28,6 +28,9 @@ enum CoachServiceError: Error, Equatable {
     case transcriptQualityTooLow
     case aiGenerationFailed
     case purchaseVerificationFailed
+    case purchaseCancelled
+    case purchasePending
+    case purchaseUnavailable
     case mockFailure(message: String)
 }
 

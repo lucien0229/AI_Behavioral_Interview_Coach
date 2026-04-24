@@ -1,4 +1,5 @@
 import Foundation
+import StoreKit
 
 protocol APITransport: Sendable {
     func data(for request: URLRequest) async throws -> (Data, HTTPURLResponse)
@@ -20,6 +21,74 @@ struct URLSessionAPITransport: APITransport {
     }
 }
 
+struct ApplePurchaseVerificationPayload: Encodable, Equatable, Sendable {
+    let productID: String
+    let transactionID: String
+    let originalTransactionID: String
+    let appAccountToken: String
+    let signedTransactionInfo: String
+    let environment: String
+}
+
+struct ApplePurchaseVerification: Sendable {
+    let payload: ApplePurchaseVerificationPayload
+    private let finishAction: @Sendable () async -> Void
+
+    init(payload: ApplePurchaseVerificationPayload, finish: @escaping @Sendable () async -> Void) {
+        self.payload = payload
+        finishAction = finish
+    }
+
+    func finish() async {
+        await finishAction()
+    }
+}
+
+protocol ApplePurchaseProviding: Sendable {
+    func purchase(productID: String, appAccountToken: String) async throws -> ApplePurchaseVerification
+}
+
+struct StoreKitApplePurchaseProvider: ApplePurchaseProviding {
+    func purchase(productID: String, appAccountToken: String) async throws -> ApplePurchaseVerification {
+        guard let accountToken = UUID(uuidString: appAccountToken) else {
+            throw CoachServiceError.mockFailure(message: "The App Store account token is invalid.")
+        }
+
+        let products = try await Product.products(for: [productID])
+        guard let product = products.first(where: { $0.id == productID }) else {
+            throw CoachServiceError.purchaseUnavailable
+        }
+
+        switch try await product.purchase(options: [.appAccountToken(accountToken)]) {
+        case .success(let verificationResult):
+            guard case .verified(let transaction) = verificationResult else {
+                throw CoachServiceError.purchaseVerificationFailed
+            }
+
+            let payload = ApplePurchaseVerificationPayload(
+                productID: transaction.productID,
+                transactionID: String(transaction.id),
+                originalTransactionID: String(transaction.originalID),
+                appAccountToken: transaction.appAccountToken?.uuidString.lowercased() ?? appAccountToken,
+                signedTransactionInfo: verificationResult.jwsRepresentation,
+                environment: transaction.environment.apiValue
+            )
+            return ApplePurchaseVerification(payload: payload) {
+                await transaction.finish()
+            }
+
+        case .userCancelled:
+            throw CoachServiceError.purchaseCancelled
+
+        case .pending:
+            throw CoachServiceError.purchasePending
+
+        @unknown default:
+            throw CoachServiceError.purchaseUnavailable
+        }
+    }
+}
+
 actor RemoteCoachService: CoachService {
     private let apiBaseURL: URL
     private let installationID: String
@@ -27,6 +96,7 @@ actor RemoteCoachService: CoachService {
     private let appVersion: String
     private let idempotencyKey: @Sendable () -> String
     private let transport: any APITransport
+    private let purchaseProvider: any ApplePurchaseProviding
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
     private var bootstrapContext: BootstrapContext?
@@ -37,7 +107,8 @@ actor RemoteCoachService: CoachService {
         localeIdentifier: String = Locale.current.identifier,
         appVersion: String = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0",
         idempotencyKey: @escaping @Sendable () -> String = { UUID().uuidString },
-        transport: any APITransport = URLSessionAPITransport()
+        transport: any APITransport = URLSessionAPITransport(),
+        purchaseProvider: any ApplePurchaseProviding = StoreKitApplePurchaseProvider()
     ) {
         self.apiBaseURL = Self.normalizedAPIBaseURL(from: baseURL)
         self.installationID = installationID
@@ -45,6 +116,7 @@ actor RemoteCoachService: CoachService {
         self.appVersion = appVersion
         self.idempotencyKey = idempotencyKey
         self.transport = transport
+        self.purchaseProvider = purchaseProvider
 
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
@@ -182,7 +254,21 @@ actor RemoteCoachService: CoachService {
     }
 
     func purchaseSprintPack() async throws {
-        throw CoachServiceError.mockFailure(message: "Remote purchase verification requires StoreKit transaction integration.")
+        let entitlement: BillingEntitlementData = try await send(path: "/billing/entitlement", method: "GET")
+        guard let product = entitlement.products.first else {
+            throw CoachServiceError.purchaseUnavailable
+        }
+        let purchase = try await purchaseProvider.purchase(
+            productID: product.productId,
+            appAccountToken: entitlement.appAccountToken
+        )
+        let _: VerifyPurchaseData = try await sendJSON(
+            path: "/billing/apple/verify",
+            method: "POST",
+            body: purchase.payload,
+            requiresIdempotencyKey: true
+        )
+        await purchase.finish()
     }
 
     func restorePurchase() async throws {
@@ -687,6 +773,21 @@ private struct DeletePracticeData: Decodable {
     let deleted: Bool
 }
 
+private struct BillingEntitlementData: Decodable {
+    let appAccountToken: String
+    let products: [BillingProductData]
+}
+
+private struct BillingProductData: Decodable {
+    let productId: String
+}
+
+private struct VerifyPurchaseData: Decodable {
+    let purchaseId: String
+    let status: String
+    let usageBalance: UsageBalanceData
+}
+
 private struct RestorePurchaseData: Decodable {
     let restoredPurchaseCount: Int
     let usageBalance: UsageBalanceData
@@ -753,5 +854,20 @@ private extension Date {
 private extension Data {
     mutating func appendUTF8(_ string: String) {
         append(Data(string.utf8))
+    }
+}
+
+private extension AppStore.Environment {
+    var apiValue: String {
+        switch self {
+        case .production:
+            return "production"
+        case .sandbox:
+            return "sandbox"
+        case .xcode:
+            return "xcode"
+        default:
+            return rawValue.lowercased()
+        }
     }
 }

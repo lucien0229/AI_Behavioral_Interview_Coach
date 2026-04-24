@@ -230,6 +230,92 @@ final class RemoteCoachServiceTests: XCTestCase {
         XCTAssertEqual(requests[1].headers["Idempotency-Key"], "idem-restore")
         XCTAssertNil(requests[1].body)
     }
+
+    func testPurchaseSprintPackVerifiesAppleTransactionWithIdempotencyKey() async throws {
+        let transport = RecordingAPITransport(responses: [
+            .json(bootstrapResponseJSON),
+            .json(entitlementResponseJSON),
+            .json(verifyPurchaseResponseJSON)
+        ])
+        let purchaseProvider = StubApplePurchaseProvider(
+            payload: ApplePurchaseVerificationPayload(
+                productID: "coach_sprint_pack_01",
+                transactionID: "apple_transaction_id",
+                originalTransactionID: "apple_original_transaction_id",
+                appAccountToken: "11111111-1111-4111-8111-111111111111",
+                signedTransactionInfo: "jws-string",
+                environment: "sandbox"
+            )
+        )
+        let service = RemoteCoachService(
+            baseURL: try XCTUnwrap(URL(string: "https://api.example.test")),
+            installationID: "install-123",
+            localeIdentifier: "en-US",
+            appVersion: "1.0",
+            idempotencyKey: { "idem-purchase" },
+            transport: transport,
+            purchaseProvider: purchaseProvider
+        )
+
+        _ = try await service.bootstrap()
+        try await service.purchaseSprintPack()
+        let requests = await transport.requests()
+        let purchaseRequests = await purchaseProvider.requests()
+
+        XCTAssertEqual(requests.map(\.path), [
+            "/api/v1/app-users/bootstrap",
+            "/api/v1/billing/entitlement",
+            "/api/v1/billing/apple/verify"
+        ])
+        XCTAssertEqual(requests[1].method, "GET")
+        XCTAssertEqual(requests[1].headers["Authorization"], "Bearer opaque-token")
+        XCTAssertEqual(purchaseRequests.count, 1)
+        XCTAssertEqual(purchaseRequests.first?.productID, "coach_sprint_pack_01")
+        XCTAssertEqual(purchaseRequests.first?.appAccountToken, "11111111-1111-4111-8111-111111111111")
+        XCTAssertEqual(requests[2].method, "POST")
+        XCTAssertEqual(requests[2].headers["Authorization"], "Bearer opaque-token")
+        XCTAssertEqual(requests[2].headers["Idempotency-Key"], "idem-purchase")
+        XCTAssertEqual(requests[2].headers["Content-Type"], "application/json")
+        XCTAssertEqual(requests[2].jsonBody["product_id"] as? String, "coach_sprint_pack_01")
+        XCTAssertEqual(requests[2].jsonBody["transaction_id"] as? String, "apple_transaction_id")
+        XCTAssertEqual(requests[2].jsonBody["original_transaction_id"] as? String, "apple_original_transaction_id")
+        XCTAssertEqual(requests[2].jsonBody["app_account_token"] as? String, "11111111-1111-4111-8111-111111111111")
+        XCTAssertEqual(requests[2].jsonBody["signed_transaction_info"] as? String, "jws-string")
+        XCTAssertEqual(requests[2].jsonBody["environment"] as? String, "sandbox")
+    }
+
+    func testPurchaseSprintPackFinishesAppleTransactionAfterServerVerification() async throws {
+        let transport = RecordingAPITransport(responses: [
+            .json(bootstrapResponseJSON),
+            .json(entitlementResponseJSON),
+            .json(verifyPurchaseResponseJSON)
+        ])
+        let purchaseProvider = StubApplePurchaseProvider(
+            payload: ApplePurchaseVerificationPayload(
+                productID: "coach_sprint_pack_01",
+                transactionID: "apple_transaction_id",
+                originalTransactionID: "apple_original_transaction_id",
+                appAccountToken: "11111111-1111-4111-8111-111111111111",
+                signedTransactionInfo: "jws-string",
+                environment: "sandbox"
+            )
+        )
+        let service = RemoteCoachService(
+            baseURL: try XCTUnwrap(URL(string: "https://api.example.test")),
+            installationID: "install-123",
+            localeIdentifier: "en-US",
+            appVersion: "1.0",
+            idempotencyKey: { "idem-purchase" },
+            transport: transport,
+            purchaseProvider: purchaseProvider
+        )
+
+        _ = try await service.bootstrap()
+        try await service.purchaseSprintPack()
+
+        let finishCallCount = await purchaseProvider.finishCallCount()
+        XCTAssertEqual(finishCallCount, 1)
+    }
 }
 
 private actor RecordingAPITransport: APITransport {
@@ -303,6 +389,35 @@ private final class LockedKeySequence: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return keys.removeFirst()
+    }
+}
+
+private actor StubApplePurchaseProvider: ApplePurchaseProviding {
+    private let payload: ApplePurchaseVerificationPayload
+    private var capturedRequests: [(productID: String, appAccountToken: String)] = []
+    private var capturedFinishCallCount = 0
+
+    init(payload: ApplePurchaseVerificationPayload) {
+        self.payload = payload
+    }
+
+    func purchase(productID: String, appAccountToken: String) async throws -> ApplePurchaseVerification {
+        capturedRequests.append((productID, appAccountToken))
+        return ApplePurchaseVerification(payload: payload) {
+            await self.recordFinish()
+        }
+    }
+
+    private func recordFinish() {
+        capturedFinishCallCount += 1
+    }
+
+    func finishCallCount() -> Int {
+        capturedFinishCallCount
+    }
+
+    func requests() -> [(productID: String, appAccountToken: String)] {
+        capturedRequests
     }
 }
 
@@ -423,6 +538,44 @@ private let restorePurchaseResponseJSON = """
   "request_id": "req_restore",
   "data": {
     "restored_purchase_count": 1,
+    "usage_balance": {
+      "free_session_credits_remaining": 0,
+      "paid_session_credits_remaining": 5,
+      "reserved_session_credits": 0
+    }
+  },
+  "error": null
+}
+"""
+
+private let entitlementResponseJSON = """
+{
+  "request_id": "req_entitlement",
+  "data": {
+    "app_account_token": "11111111-1111-4111-8111-111111111111",
+    "usage_balance": {
+      "free_session_credits_remaining": 0,
+      "paid_session_credits_remaining": 0,
+      "reserved_session_credits": 0
+    },
+    "products": [
+      {
+        "product_id": "coach_sprint_pack_01",
+        "display_name": "Sprint Pack",
+        "session_credits": 5
+      }
+    ]
+  },
+  "error": null
+}
+"""
+
+private let verifyPurchaseResponseJSON = """
+{
+  "request_id": "req_verify_purchase",
+  "data": {
+    "purchase_id": "pur_123",
+    "status": "verified",
     "usage_balance": {
       "free_session_credits_remaining": 0,
       "paid_session_credits_remaining": 5,

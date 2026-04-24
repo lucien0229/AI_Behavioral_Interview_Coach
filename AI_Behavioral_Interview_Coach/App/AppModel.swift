@@ -174,6 +174,12 @@ final class AppModel {
             try await service.purchaseSprintPack()
             activeSheet = nil
             await refreshHome()
+        } catch CoachServiceError.purchaseCancelled {
+            activeSheet = .apiError("Purchase canceled.")
+        } catch CoachServiceError.purchasePending {
+            activeSheet = .apiError("Purchase is pending approval.")
+        } catch CoachServiceError.purchaseVerificationFailed {
+            activeSheet = .apiError("Purchase verification failed.")
         } catch {
             activeSheet = .apiError("Purchase could not be completed.")
         }

@@ -260,6 +260,24 @@ final class AppModelTests: XCTestCase {
     }
 
     @MainActor
+    func testBuySprintPackShowsSpecificPurchaseFailureGuidance() async {
+        let cases: [(error: CoachServiceError, message: String)] = [
+            (.purchaseCancelled, "Purchase canceled."),
+            (.purchasePending, "Purchase is pending approval."),
+            (.purchaseVerificationFailed, "Purchase verification failed.")
+        ]
+
+        for testCase in cases {
+            let service = PollingCoachService(purchaseError: testCase.error)
+            let model = AppModel(service: service)
+
+            await model.buySprintPack()
+
+            XCTAssertEqual(model.activeSheet, .apiError(testCase.message))
+        }
+    }
+
+    @MainActor
     func testDeletePracticeRoutesBackToHistoryList() async throws {
         let service = MockCoachService(processingDelayNanoseconds: 0)
         _ = try await service.bootstrap()
@@ -290,6 +308,7 @@ private actor PollingCoachService: CoachService {
     private let firstAnswerError: CoachServiceError?
     private let followupAnswerError: CoachServiceError?
     private let redoError: CoachServiceError?
+    private let purchaseError: CoachServiceError?
     private var queuedSessionResponses: [TrainingSession]
     private var requestedSessionIDs: [String] = []
 
@@ -302,6 +321,7 @@ private actor PollingCoachService: CoachService {
         firstAnswerError: CoachServiceError? = nil,
         followupAnswerError: CoachServiceError? = nil,
         redoError: CoachServiceError? = nil,
+        purchaseError: CoachServiceError? = nil,
         sessionResponses: [TrainingSession] = []
     ) {
         self.createdSession = createdSession
@@ -312,6 +332,7 @@ private actor PollingCoachService: CoachService {
         self.firstAnswerError = firstAnswerError
         self.followupAnswerError = followupAnswerError
         self.redoError = redoError
+        self.purchaseError = purchaseError
         queuedSessionResponses = sessionResponses
     }
 
@@ -408,6 +429,9 @@ private actor PollingCoachService: CoachService {
     }
 
     func purchaseSprintPack() async throws {
+        if let purchaseError {
+            throw purchaseError
+        }
     }
 
     func restorePurchase() async throws {
