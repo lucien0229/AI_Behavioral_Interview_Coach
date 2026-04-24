@@ -171,7 +171,7 @@ final class AppModel {
 
     func buySprintPack() async {
         do {
-            try await service.mockPurchaseSprintPack()
+            try await service.purchaseSprintPack()
             activeSheet = nil
             await refreshHome()
         } catch {
@@ -181,7 +181,7 @@ final class AppModel {
 
     func restorePurchase() async {
         do {
-            try await service.mockRestorePurchase()
+            try await service.restorePurchase()
             activeSheet = nil
             await refreshHome()
         } catch {

@@ -45,8 +45,8 @@ protocol CoachService: Sendable {
     func history() async throws -> [PracticeSummary]
     func historyDetail(id: String) async throws -> TrainingSession
     func deletePractice(id: String) async throws -> [PracticeSummary]
-    func mockPurchaseSprintPack() async throws
-    func mockRestorePurchase() async throws
+    func purchaseSprintPack() async throws
+    func restorePurchase() async throws
     func deleteAllData() async throws -> BootstrapContext
 }
 

@@ -202,6 +202,34 @@ final class RemoteCoachServiceTests: XCTestCase {
         XCTAssertTrue(body.contains("Content-Type: audio/mp4"))
         XCTAssertTrue(body.contains("real-audio-bytes"))
     }
+
+    func testRestorePurchasePostsAppleRestoreEndpointWithIdempotencyKey() async throws {
+        let transport = RecordingAPITransport(responses: [
+            .json(bootstrapResponseJSON),
+            .json(restorePurchaseResponseJSON)
+        ])
+        let service = RemoteCoachService(
+            baseURL: try XCTUnwrap(URL(string: "https://api.example.test")),
+            installationID: "install-123",
+            localeIdentifier: "en-US",
+            appVersion: "1.0",
+            idempotencyKey: { "idem-restore" },
+            transport: transport
+        )
+
+        _ = try await service.bootstrap()
+        try await service.restorePurchase()
+        let requests = await transport.requests()
+
+        XCTAssertEqual(requests.map(\.path), [
+            "/api/v1/app-users/bootstrap",
+            "/api/v1/billing/apple/restore"
+        ])
+        XCTAssertEqual(requests[1].method, "POST")
+        XCTAssertEqual(requests[1].headers["Authorization"], "Bearer opaque-token")
+        XCTAssertEqual(requests[1].headers["Idempotency-Key"], "idem-restore")
+        XCTAssertNil(requests[1].body)
+    }
 }
 
 private actor RecordingAPITransport: APITransport {
@@ -385,6 +413,21 @@ private let firstAnswerSubmittedResponseJSON = """
   "data": {
     "session_id": "ses_new",
     "status": "first_answer_processing"
+  },
+  "error": null
+}
+"""
+
+private let restorePurchaseResponseJSON = """
+{
+  "request_id": "req_restore",
+  "data": {
+    "restored_purchase_count": 1,
+    "usage_balance": {
+      "free_session_credits_remaining": 0,
+      "paid_session_credits_remaining": 5,
+      "reserved_session_credits": 0
+    }
   },
   "error": null
 }
