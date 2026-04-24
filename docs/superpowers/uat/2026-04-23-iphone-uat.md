@@ -13,13 +13,15 @@
 - Added `UILaunchStoryboardName = LaunchScreen` so the app runs in full-screen iPhone geometry
 - Tightened root screen sizing so launch/home containers request full-window layout
 - Added XCUITest foreground coverage for Home, Privacy Notice, and Resume Upload entry screens
+- Added XCUITest foreground coverage for microphone allow/deny states
+- Added XCUITest foreground coverage for first-answer recording reaching the ready-to-submit state
 
 ## Automated checks
 
 - `git diff --check` passed
 - `xcrun swiftc -typecheck $(rg --files AI_Behavioral_Interview_Coach -g'*.swift')` passed
-- `xcodebuild -quiet test -project AI_Behavioral_Interview_Coach.xcodeproj -scheme AI_Behavioral_Interview_Coach -destination 'platform=iOS Simulator,id=F592A705-BDE3-495D-9F13-1134BC4F31DD' -resultBundlePath /tmp/aibic-iphone-ui.xcresult` passed
-- Result bundle summary: 40 tests passed, 0 failed, 0 skipped
+- `xcodebuild -quiet test -scheme AI_Behavioral_Interview_Coach -destination 'id=F592A705-BDE3-495D-9F13-1134BC4F31DD' -resultBundlePath /tmp/aibic-iphone-ui.xcresult` passed
+- Result bundle summary: 42 tests passed, 0 failed, 0 skipped
 - UI screenshot attachments exported to `/tmp/aibic-iphone-ui-attachments`
 
 ## Simulator validation
@@ -29,7 +31,9 @@
 - Home header text now renders as `Interview Coach` without truncation
 - Foreground UI automation successfully navigates Home -> Privacy Notice and Home -> Resume Upload
 - Full-screen screenshot output now matches iPhone geometry instead of the previous card-like capture
-- Microphone privacy grant path had already been verified earlier with `simctl privacy`
+- Microphone allow path verifies the system permission prompt, the first-answer recording controls, and the ready-to-submit state
+- Microphone deny path verifies the system permission prompt and the in-app microphone guidance sheet
+- Recording UI tests use `AIBIC_UI_TEST_FAKE_AUDIO=1` after the real permission decision so simulator host audio hardware does not make the suite flaky
 
 ## Resolved issue
 
@@ -37,10 +41,12 @@ The previous `simctl io ... screenshot` and UI screenshot output showed the app 
 
 Current local capture artifact:
 
-- Home: `/tmp/aibic-iphone-ui-attachments/67050D01-6A30-4201-88C1-BAFC04148C9D.png`
-- Privacy Notice: `/tmp/aibic-iphone-ui-attachments/FC456447-0D98-4CFE-B2BE-E2EBE3B7B334.png`
-- Resume Upload: `/tmp/aibic-iphone-ui-attachments/FE841B21-5F84-4A1A-B9FE-39B652C42FC5.png`
+- Home: `/tmp/aibic-iphone-ui-attachments/467FB9E9-1227-4845-B18A-E2E1A956C46E.png`
+- Privacy Notice: `/tmp/aibic-iphone-ui-attachments/8F2B0AE8-7F21-49BF-86BF-031A5A65716E.png`
+- Resume Upload: `/tmp/aibic-iphone-ui-attachments/2D86D8DB-84DC-4908-89C8-C8C6B67193CB.png`
+- First Answer Recorded: `/tmp/aibic-iphone-ui-attachments/FF8DDBFC-E784-47DD-89EF-C72AD271396F.png`
+- Microphone Permission Sheet: `/tmp/aibic-iphone-ui-attachments/2360CDB8-AE71-4A2E-9663-B035D634064F.png`
 
 ## Recommended next action
 
-Extend foreground UI automation to the microphone permission and first-answer recording flow, using the existing iPhone simulator permission controls to validate both allowed and denied microphone states.
+Extend foreground UI automation from first-answer submission into follow-up generation, follow-up answer submission, and feedback display. This is the next highest-risk user journey after microphone and recording coverage.

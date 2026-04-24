@@ -37,6 +37,8 @@ final class AudioRecorder {
     @ObservationIgnored private var currentRecordingURL: URL?
     @ObservationIgnored private var playbackDelegate: PlaybackDelegate?
     @ObservationIgnored private var activePlaybackToken: UUID?
+    @ObservationIgnored private var simulatedRecordingStartedAt: Date?
+    @ObservationIgnored private let usesRecordingSimulation = ProcessInfo.processInfo.environment["AIBIC_UI_TEST_FAKE_AUDIO"] == "1"
 
     func requestPermission() async {
         let granted = await requestSystemPermission()
@@ -52,6 +54,21 @@ final class AudioRecorder {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("audio-recorder-\(UUID().uuidString)")
             .appendingPathExtension("m4a")
+
+        if usesRecordingSimulation {
+            guard FileManager.default.createFile(atPath: url.path, contents: Data()) else {
+                recordingState = .idle
+                elapsedSeconds = 0
+                return
+            }
+
+            currentRecordingURL = url
+            simulatedRecordingStartedAt = Date()
+            elapsedSeconds = 0
+            recordingState = .recording
+            startRecordingTimer()
+            return
+        }
 
         do {
             try activateAudioSession()
@@ -99,6 +116,7 @@ final class AudioRecorder {
 
         let duration = max(elapsedSeconds, recorder?.currentTime ?? 0)
         elapsedSeconds = duration
+        simulatedRecordingStartedAt = nil
 
         if let url = currentRecordingURL, FileManager.default.fileExists(atPath: url.path) {
             recordingState = .recorded(url)
@@ -188,6 +206,7 @@ final class AudioRecorder {
         }
 
         currentRecordingURL = nil
+        simulatedRecordingStartedAt = nil
         elapsedSeconds = 0
         recordingState = .idle
         deactivateAudioSession()
@@ -215,6 +234,11 @@ final class AudioRecorder {
     }
 
     private func updateElapsedTime() {
+        if case .recording = recordingState, let simulatedRecordingStartedAt {
+            elapsedSeconds = Date().timeIntervalSince(simulatedRecordingStartedAt)
+            return
+        }
+
         guard case .recording = recordingState, let recorder else { return }
         elapsedSeconds = recorder.currentTime
     }

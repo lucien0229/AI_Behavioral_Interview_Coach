@@ -12,10 +12,14 @@ actor MockCoachService: CoachService {
 
     init(
         processingDelayNanoseconds: UInt64 = 350_000_000,
-        now: @escaping @Sendable () -> Date = { Date() }
+        now: @escaping @Sendable () -> Date = { Date() },
+        initialActiveResume: ActiveResume? = nil,
+        initialCredits: UsageBalance = .initialFree
     ) {
         self.processingDelayNanoseconds = processingDelayNanoseconds
         self.now = now
+        activeResume = initialActiveResume
+        credits = initialCredits
     }
 
     func bootstrap() async throws -> BootstrapContext {
