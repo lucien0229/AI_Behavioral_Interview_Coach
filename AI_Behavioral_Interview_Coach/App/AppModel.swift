@@ -5,6 +5,7 @@ import Observation
 @Observable
 final class AppModel {
     private let service: any CoachService
+    private let maxSessionPollAttempts = 25
 
     var isBootstrapping = true
     var homeSnapshot = HomeSnapshot(activeResume: nil, activeSession: nil, credits: .initialFree, recentPractice: [])
@@ -71,7 +72,10 @@ final class AppModel {
             let session = try await service.createTrainingSession(focus: focus)
             currentSession = session
             routeToTrainingSession(id: session.id)
+            currentSession = try await pollSessionUntilDisplayable(session)
             homeSnapshot = try await service.home()
+        } catch is CancellationError {
+            return
         } catch CoachServiceError.noCredits {
             activeSheet = .paywall
         } catch CoachServiceError.activeSessionExists {
@@ -83,6 +87,9 @@ final class AppModel {
                 }
                 currentSession = activeSession
                 routeToTrainingSession(id: activeSession.id)
+                currentSession = try await pollSessionUntilDisplayable(activeSession)
+            } catch is CancellationError {
+                return
             } catch {
                 activeSheet = .apiError("We could not start this practice round.")
             }
@@ -93,7 +100,11 @@ final class AppModel {
 
     func loadSession(id: String) async {
         do {
-            currentSession = try await service.session(id: id)
+            let session = try await service.session(id: id)
+            currentSession = session
+            currentSession = try await pollSessionUntilDisplayable(session)
+        } catch is CancellationError {
+            return
         } catch {
             activeSheet = .apiError("We could not load this practice round.")
         }
@@ -102,8 +113,12 @@ final class AppModel {
     func submitFirstAnswer(recording: RecordedAudio) async -> Bool {
         guard let currentSession else { return false }
         do {
-            self.currentSession = try await service.submitFirstAnswer(sessionID: currentSession.id, recording: recording)
+            let session = try await service.submitFirstAnswer(sessionID: currentSession.id, recording: recording)
+            self.currentSession = session
+            self.currentSession = try await pollSessionUntilDisplayable(session)
             return true
+        } catch is CancellationError {
+            return false
         } catch {
             activeSheet = .apiError("We could not submit your answer. Please try again.")
             return false
@@ -113,12 +128,16 @@ final class AppModel {
     func submitFollowupAnswer(recording: RecordedAudio) async -> Bool {
         guard let currentSession else { return false }
         do {
-            self.currentSession = try await service.submitFollowupAnswer(sessionID: currentSession.id, recording: recording)
+            let session = try await service.submitFollowupAnswer(sessionID: currentSession.id, recording: recording)
+            self.currentSession = session
+            self.currentSession = try await pollSessionUntilDisplayable(session)
             do {
                 homeSnapshot = try await service.home()
             } catch {
             }
             return true
+        } catch is CancellationError {
+            return false
         } catch {
             activeSheet = .apiError("We could not submit your follow-up answer. Please try again.")
             return false
@@ -128,9 +147,13 @@ final class AppModel {
     func submitRedo(recording: RecordedAudio) async -> Bool {
         guard let currentSession else { return false }
         do {
-            self.currentSession = try await service.submitRedo(sessionID: currentSession.id, recording: recording)
+            let session = try await service.submitRedo(sessionID: currentSession.id, recording: recording)
+            self.currentSession = session
+            self.currentSession = try await pollSessionUntilDisplayable(session)
             await refreshHome()
             return true
+        } catch is CancellationError {
+            return false
         } catch {
             activeSheet = .apiError("We could not evaluate your redo. Your original feedback is saved.")
             return false
@@ -223,5 +246,47 @@ final class AppModel {
             return
         }
         navigationPath.append(route)
+    }
+
+    private func pollSessionUntilDisplayable(_ session: TrainingSession) async throws -> TrainingSession {
+        var latestSession = session
+        var completedPolls = 0
+
+        while latestSession.status.requiresSessionPolling && completedPolls < maxSessionPollAttempts {
+            try await waitBeforeNextSessionPoll(afterCompletedPolls: completedPolls)
+            try Task.checkCancellation()
+
+            do {
+                latestSession = try await service.session(id: latestSession.id)
+                currentSession = latestSession
+                completedPolls += 1
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                return latestSession
+            }
+        }
+
+        return latestSession
+    }
+
+    private func waitBeforeNextSessionPoll(afterCompletedPolls completedPolls: Int) async throws {
+        guard completedPolls > 0 else {
+            return
+        }
+
+        let intervalNanoseconds: UInt64 = completedPolls <= 10 ? 2_000_000_000 : 5_000_000_000
+        try await Task.sleep(nanoseconds: intervalNanoseconds)
+    }
+}
+
+private extension TrainingSessionStatus {
+    var requiresSessionPolling: Bool {
+        switch self {
+        case .questionGenerating, .firstAnswerProcessing, .followupGenerating, .followupAnswerProcessing, .feedbackGenerating, .redoProcessing, .redoEvaluating:
+            return true
+        case .waitingFirstAnswer, .waitingFollowupAnswer, .redoAvailable, .completed, .abandoned, .failed:
+            return false
+        }
     }
 }
