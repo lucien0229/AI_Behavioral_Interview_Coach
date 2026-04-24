@@ -89,6 +89,44 @@ final class RemoteCoachServiceTests: XCTestCase {
         }
     }
 
+    func testActionableApiErrorCodesMapToSpecificCoachServiceErrors() async throws {
+        let cases: [(code: String, expectedError: CoachServiceError)] = [
+            ("RESUME_PARSE_FAILED", .resumeParseFailed),
+            ("RESUME_PROFILE_UNUSABLE", .resumeProfileUnusable),
+            ("IDEMPOTENCY_CONFLICT", .idempotencyConflict),
+            ("AUDIO_UPLOAD_FAILED", .audioUploadFailed),
+            ("TRANSCRIPTION_FAILED", .transcriptionFailed),
+            ("TRANSCRIPT_QUALITY_TOO_LOW", .transcriptQualityTooLow),
+            ("AI_GENERATION_FAILED", .aiGenerationFailed),
+            ("AI_OUTPUT_VALIDATION_FAILED", .aiGenerationFailed),
+            ("APPLE_PURCHASE_VERIFICATION_FAILED", .purchaseVerificationFailed)
+        ]
+
+        for testCase in cases {
+            let transport = RecordingAPITransport(responses: [
+                .json(bootstrapResponseJSON),
+                .json(apiErrorResponseJSON(code: testCase.code), statusCode: 400)
+            ])
+            let service = RemoteCoachService(
+                baseURL: try XCTUnwrap(URL(string: "https://api.example.test")),
+                installationID: "install-123",
+                localeIdentifier: "en-US",
+                appVersion: "1.0",
+                idempotencyKey: { "idem-error" },
+                transport: transport
+            )
+
+            _ = try await service.bootstrap()
+
+            do {
+                _ = try await service.createTrainingSession(focus: .ownership)
+                XCTFail("Expected \(testCase.code) to throw")
+            } catch let error as CoachServiceError {
+                XCTAssertEqual(error, testCase.expectedError, "Wrong mapping for \(testCase.code)")
+            }
+        }
+    }
+
     func testUnauthorizedWriteBootstrapsAndRetriesWithSameIdempotencyKey() async throws {
         let keys = LockedKeySequence([
             "idem-bootstrap-1",
@@ -314,6 +352,20 @@ private let insufficientCreditsResponseJSON = """
   }
 }
 """
+
+private func apiErrorResponseJSON(code: String, message: String = "Request failed.") -> String {
+    """
+    {
+      "request_id": "req_error",
+      "data": null,
+      "error": {
+        "code": "\(code)",
+        "message": "\(message)",
+        "details": {}
+      }
+    }
+    """
+}
 
 private let unauthorizedResponseJSON = """
 {

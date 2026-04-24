@@ -16,10 +16,18 @@ enum CoachServiceError: Error, Equatable {
     case unsupportedFileType
     case fileTooLarge
     case resumeNotReady
+    case resumeParseFailed
+    case resumeProfileUnusable
     case noCredits
     case activeSessionExists
     case sessionNotFound
     case invalidSessionState
+    case idempotencyConflict
+    case audioUploadFailed
+    case transcriptionFailed
+    case transcriptQualityTooLow
+    case aiGenerationFailed
+    case purchaseVerificationFailed
     case mockFailure(message: String)
 }
 
