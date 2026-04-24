@@ -138,7 +138,7 @@ actor MockCoachService: CoachService {
         return completedSession
     }
 
-    func submitFirstAnswer(sessionID: String) async throws -> TrainingSession {
+    func submitFirstAnswer(sessionID: String, recording: RecordedAudio) async throws -> TrainingSession {
         var session = try requireActiveSession(id: sessionID)
 
         guard session.status == .waitingFirstAnswer else {
@@ -166,7 +166,7 @@ actor MockCoachService: CoachService {
         }
     }
 
-    func submitFollowupAnswer(sessionID: String) async throws -> TrainingSession {
+    func submitFollowupAnswer(sessionID: String, recording: RecordedAudio) async throws -> TrainingSession {
         var session = try requireActiveSession(id: sessionID)
 
         guard session.status == .waitingFollowupAnswer else {
@@ -195,7 +195,7 @@ actor MockCoachService: CoachService {
         }
     }
 
-    func submitRedo(sessionID: String) async throws -> TrainingSession {
+    func submitRedo(sessionID: String, recording: RecordedAudio) async throws -> TrainingSession {
         var session = try requireActiveSession(id: sessionID)
 
         guard session.status == .redoAvailable else {

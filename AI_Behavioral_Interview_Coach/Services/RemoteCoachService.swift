@@ -130,16 +130,28 @@ actor RemoteCoachService: CoachService {
         return data.domainTrainingSession()
     }
 
-    func submitFirstAnswer(sessionID: String) async throws -> TrainingSession {
-        try await submitAudio(path: "/training-sessions/\(sessionID)/first-answer", fallbackSessionID: sessionID)
+    func submitFirstAnswer(sessionID: String, recording: RecordedAudio) async throws -> TrainingSession {
+        try await submitAudio(
+            path: "/training-sessions/\(sessionID)/first-answer",
+            recording: recording,
+            fallbackFocus: .ownership
+        )
     }
 
-    func submitFollowupAnswer(sessionID: String) async throws -> TrainingSession {
-        try await submitAudio(path: "/training-sessions/\(sessionID)/follow-up-answer", fallbackSessionID: sessionID)
+    func submitFollowupAnswer(sessionID: String, recording: RecordedAudio) async throws -> TrainingSession {
+        try await submitAudio(
+            path: "/training-sessions/\(sessionID)/follow-up-answer",
+            recording: recording,
+            fallbackFocus: .ownership
+        )
     }
 
-    func submitRedo(sessionID: String) async throws -> TrainingSession {
-        try await submitAudio(path: "/training-sessions/\(sessionID)/redo", fallbackSessionID: sessionID)
+    func submitRedo(sessionID: String, recording: RecordedAudio) async throws -> TrainingSession {
+        try await submitAudio(
+            path: "/training-sessions/\(sessionID)/redo",
+            recording: recording,
+            fallbackFocus: .ownership
+        )
     }
 
     func skipRedo(sessionID: String) async throws -> TrainingSession {
@@ -197,13 +209,20 @@ private extension RemoteCoachService {
         return URL(string: "\(trimmed)/api/v1") ?? baseURL
     }
 
-    func submitAudio(path: String, fallbackSessionID: String) async throws -> TrainingSession {
+    func submitAudio(path: String, recording: RecordedAudio, fallbackFocus: TrainingFocus) async throws -> TrainingSession {
+        let audioData: Data
+        do {
+            audioData = try Data(contentsOf: recording.fileURL)
+        } catch {
+            throw CoachServiceError.mockFailure(message: "Recorded audio file could not be read.")
+        }
+
         let body = multipartBody(
-            fields: ["duration_seconds": "0"],
+            fields: ["duration_seconds": String(recording.durationSeconds)],
             fileFieldName: "audio_file",
-            fileName: "\(fallbackSessionID).m4a",
-            mimeType: "audio/mp4",
-            fileData: Data()
+            fileName: recording.fileURL.lastPathComponent,
+            mimeType: mimeType(forAudio: recording.fileURL),
+            fileData: audioData
         )
         let data: SessionMutationData = try await send(
             path: path,
@@ -212,7 +231,7 @@ private extension RemoteCoachService {
             contentType: body.contentType,
             requiresIdempotencyKey: true
         )
-        return data.domainTrainingSession(fallbackFocus: .ownership)
+        return data.domainTrainingSession(fallbackFocus: fallbackFocus)
     }
 
     func sendJSON<Body: Encodable, Payload: Decodable>(
@@ -340,6 +359,17 @@ private extension RemoteCoachService {
             return "application/pdf"
         case "docx":
             return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        default:
+            return "application/octet-stream"
+        }
+    }
+
+    func mimeType(forAudio fileURL: URL) -> String {
+        switch fileURL.pathExtension.lowercased() {
+        case "m4a", "mp4":
+            return "audio/mp4"
+        case "wav":
+            return "audio/wav"
         default:
             return "application/octet-stream"
         }

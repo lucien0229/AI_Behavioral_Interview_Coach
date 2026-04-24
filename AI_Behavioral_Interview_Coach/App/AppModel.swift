@@ -99,10 +99,10 @@ final class AppModel {
         }
     }
 
-    func submitFirstAnswer() async -> Bool {
+    func submitFirstAnswer(recording: RecordedAudio) async -> Bool {
         guard let currentSession else { return false }
         do {
-            self.currentSession = try await service.submitFirstAnswer(sessionID: currentSession.id)
+            self.currentSession = try await service.submitFirstAnswer(sessionID: currentSession.id, recording: recording)
             return true
         } catch {
             activeSheet = .apiError("We could not submit your answer. Please try again.")
@@ -110,10 +110,10 @@ final class AppModel {
         }
     }
 
-    func submitFollowupAnswer() async -> Bool {
+    func submitFollowupAnswer(recording: RecordedAudio) async -> Bool {
         guard let currentSession else { return false }
         do {
-            self.currentSession = try await service.submitFollowupAnswer(sessionID: currentSession.id)
+            self.currentSession = try await service.submitFollowupAnswer(sessionID: currentSession.id, recording: recording)
             do {
                 homeSnapshot = try await service.home()
             } catch {
@@ -125,10 +125,10 @@ final class AppModel {
         }
     }
 
-    func submitRedo() async -> Bool {
+    func submitRedo(recording: RecordedAudio) async -> Bool {
         guard let currentSession else { return false }
         do {
-            self.currentSession = try await service.submitRedo(sessionID: currentSession.id)
+            self.currentSession = try await service.submitRedo(sessionID: currentSession.id, recording: recording)
             await refreshHome()
             return true
         } catch {

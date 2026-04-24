@@ -126,6 +126,44 @@ final class RemoteCoachServiceTests: XCTestCase {
         XCTAssertEqual(requests[3].headers["Authorization"], "Bearer refreshed-token")
         XCTAssertEqual(requests[3].headers["Idempotency-Key"], "idem-create-session")
     }
+
+    func testSubmitFirstAnswerUploadsRecordedAudioFileAndDuration() async throws {
+        let audioURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("first-answer-\(UUID().uuidString)")
+            .appendingPathExtension("m4a")
+        try Data("real-audio-bytes".utf8).write(to: audioURL)
+        defer { try? FileManager.default.removeItem(at: audioURL) }
+
+        let transport = RecordingAPITransport(responses: [
+            .json(bootstrapResponseJSON),
+            .json(firstAnswerSubmittedResponseJSON)
+        ])
+        let service = RemoteCoachService(
+            baseURL: try XCTUnwrap(URL(string: "https://api.example.test")),
+            installationID: "install-123",
+            localeIdentifier: "en-US",
+            appVersion: "1.0",
+            idempotencyKey: { "idem-first-answer" },
+            transport: transport
+        )
+
+        _ = try await service.bootstrap()
+        let session = try await service.submitFirstAnswer(
+            sessionID: "ses_new",
+            recording: RecordedAudio(fileURL: audioURL, durationSeconds: 3.25)
+        )
+        let requests = await transport.requests()
+        let body = String(decoding: try XCTUnwrap(requests[1].body), as: UTF8.self)
+
+        XCTAssertEqual(session.status, .firstAnswerProcessing)
+        XCTAssertEqual(requests[1].path, "/api/v1/training-sessions/ses_new/first-answer")
+        XCTAssertEqual(requests[1].headers["Idempotency-Key"], "idem-first-answer")
+        XCTAssertTrue(requests[1].headers["Content-Type"]?.hasPrefix("multipart/form-data; boundary=") == true)
+        XCTAssertTrue(body.contains("name=\"duration_seconds\"\r\n\r\n3.25\r\n"))
+        XCTAssertTrue(body.contains("name=\"audio_file\"; filename=\"\(audioURL.lastPathComponent)\""))
+        XCTAssertTrue(body.contains("Content-Type: audio/mp4"))
+        XCTAssertTrue(body.contains("real-audio-bytes"))
+    }
 }
 
 private actor RecordingAPITransport: APITransport {
@@ -286,6 +324,17 @@ private let unauthorizedResponseJSON = """
     "message": "Token expired.",
     "details": {}
   }
+}
+"""
+
+private let firstAnswerSubmittedResponseJSON = """
+{
+  "request_id": "req_first_answer",
+  "data": {
+    "session_id": "ses_new",
+    "status": "first_answer_processing"
+  },
+  "error": null
 }
 """
 

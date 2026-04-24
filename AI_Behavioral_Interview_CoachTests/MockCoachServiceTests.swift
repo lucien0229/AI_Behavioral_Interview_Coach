@@ -42,10 +42,10 @@ final class MockCoachServiceTests: XCTestCase {
 
         XCTAssertEqual(session.status, .waitingFirstAnswer)
 
-        session = try await service.submitFirstAnswer(sessionID: session.id)
+        session = try await service.submitFirstAnswer(sessionID: session.id, recording: .testFixture)
         XCTAssertEqual(session.status, .waitingFollowupAnswer)
 
-        session = try await service.submitFollowupAnswer(sessionID: session.id)
+        session = try await service.submitFollowupAnswer(sessionID: session.id, recording: .testFixture)
         XCTAssertEqual(session.status, .redoAvailable)
 
         let homeAfterFeedback = try await service.home()
@@ -91,13 +91,13 @@ final class MockCoachServiceTests: XCTestCase {
         _ = try await service.uploadResume(fileName: "alex_pm_resume.pdf")
 
         var session = try await service.createTrainingSession(focus: .ownership)
-        session = try await service.submitFirstAnswer(sessionID: session.id)
-        session = try await service.submitFollowupAnswer(sessionID: session.id)
+        session = try await service.submitFirstAnswer(sessionID: session.id, recording: .testFixture)
+        session = try await service.submitFollowupAnswer(sessionID: session.id, recording: .testFixture)
         _ = try await service.skipRedo(sessionID: session.id)
 
         session = try await service.createTrainingSession(focus: .prioritization)
-        session = try await service.submitFirstAnswer(sessionID: session.id)
-        _ = try await service.submitFollowupAnswer(sessionID: session.id)
+        session = try await service.submitFirstAnswer(sessionID: session.id, recording: .testFixture)
+        _ = try await service.submitFollowupAnswer(sessionID: session.id, recording: .testFixture)
         _ = try await service.deleteResume(mode: .resumeOnlyRedactedHistory)
 
         do {
@@ -218,7 +218,7 @@ final class MockCoachServiceTests: XCTestCase {
         _ = try await service.bootstrap()
         _ = try await service.uploadResume(fileName: "alex_pm_resume.pdf")
         var session = try await service.createTrainingSession(focus: .ownership)
-        session = try await service.submitFirstAnswer(sessionID: session.id)
+        session = try await service.submitFirstAnswer(sessionID: session.id, recording: .testFixture)
 
         let submitTask = Task {
             await submitFollowupResult(service: service, sessionID: session.id)
@@ -242,7 +242,7 @@ final class MockCoachServiceTests: XCTestCase {
         _ = try await service.bootstrap()
         _ = try await service.uploadResume(fileName: "alex_pm_resume.pdf")
         var session = try await service.createTrainingSession(focus: .ownership)
-        session = try await service.submitFirstAnswer(sessionID: session.id)
+        session = try await service.submitFirstAnswer(sessionID: session.id, recording: .testFixture)
 
         let submitTask = Task {
             await submitFollowupResult(service: service, sessionID: session.id)
@@ -322,7 +322,7 @@ private func submitFollowupResult(
     sessionID: String
 ) async -> Result<TrainingSession, CoachServiceError> {
     do {
-        return .success(try await service.submitFollowupAnswer(sessionID: sessionID))
+        return .success(try await service.submitFollowupAnswer(sessionID: sessionID, recording: .testFixture))
     } catch let error as CoachServiceError {
         return .failure(error)
     } catch {

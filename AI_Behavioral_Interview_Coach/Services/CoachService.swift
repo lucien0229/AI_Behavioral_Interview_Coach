@@ -6,6 +6,11 @@ struct BootstrapContext: Equatable {
     let appAccountToken: String
 }
 
+struct RecordedAudio: Equatable, Sendable {
+    let fileURL: URL
+    let durationSeconds: TimeInterval
+}
+
 enum CoachServiceError: Error, Equatable {
     case notBootstrapped
     case unsupportedFileType
@@ -25,9 +30,9 @@ protocol CoachService: Sendable {
     func deleteResume(mode: DeleteResumeMode) async throws -> HomeSnapshot
     func createTrainingSession(focus: TrainingFocus?) async throws -> TrainingSession
     func session(id: String) async throws -> TrainingSession
-    func submitFirstAnswer(sessionID: String) async throws -> TrainingSession
-    func submitFollowupAnswer(sessionID: String) async throws -> TrainingSession
-    func submitRedo(sessionID: String) async throws -> TrainingSession
+    func submitFirstAnswer(sessionID: String, recording: RecordedAudio) async throws -> TrainingSession
+    func submitFollowupAnswer(sessionID: String, recording: RecordedAudio) async throws -> TrainingSession
+    func submitRedo(sessionID: String, recording: RecordedAudio) async throws -> TrainingSession
     func skipRedo(sessionID: String) async throws -> TrainingSession
     func history() async throws -> [PracticeSummary]
     func historyDetail(id: String) async throws -> TrainingSession
