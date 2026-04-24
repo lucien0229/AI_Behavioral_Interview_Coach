@@ -45,6 +45,46 @@ final class MicrophoneRecordingUITests: XCTestCase {
         let app = makeReadyResumeApp()
         app.resetAuthorizationStatus(for: .microphone)
 
+        reachFeedback(in: app)
+        addScreenshot(named: "18-feedback-ready")
+    }
+
+    @MainActor
+    func testRedoSubmissionCompletesAndAppearsInHistory() throws {
+        let app = makeReadyResumeApp()
+        app.resetAuthorizationStatus(for: .microphone)
+
+        reachFeedback(in: app)
+        app.buttons["Redo this answer"].firstMatch.tap()
+
+        XCTAssertTrue(app.staticTexts["Redo"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["One guided redo"].exists)
+        XCTAssertTrue(app.buttons["Start recording"].firstMatch.exists)
+
+        recordCurrentAnswer(
+            in: app,
+            recordingText: "Recording your redo.",
+            submitButtonTitle: "Submit redo"
+        )
+        app.buttons["Submit redo"].firstMatch.tap()
+
+        XCTAssertTrue(app.staticTexts["Practice complete"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["Redo review"].exists)
+        XCTAssertTrue(app.staticTexts["Clearer ownership signal."].exists)
+        XCTAssertTrue(app.staticTexts["Partially improved"].exists)
+        addScreenshot(named: "19-result-complete")
+
+        app.buttons["Back home"].firstMatch.tap()
+
+        XCTAssertTrue(app.staticTexts["Last practice"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["View all history"].exists)
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Redo reviewed")).firstMatch.exists)
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Partially improved")).firstMatch.exists)
+        addScreenshot(named: "20-home-history-after-redo")
+    }
+
+    @MainActor
+    private func reachFeedback(in app: XCUIApplication) {
         startFirstAnswer(in: app)
         recordCurrentAnswer(in: app, systemPromptButtonIndex: 1)
         app.buttons["Submit answer"].firstMatch.tap()
@@ -62,7 +102,6 @@ final class MicrophoneRecordingUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Why it matters"].exists)
         XCTAssertTrue(app.staticTexts["Redo priority"].exists)
         XCTAssertTrue(app.staticTexts["You described the team outcome before making your personal decision clear."].exists)
-        addScreenshot(named: "18-feedback-ready")
     }
 
     @MainActor
@@ -98,7 +137,12 @@ final class MicrophoneRecordingUITests: XCTestCase {
     }
 
     @MainActor
-    private func recordCurrentAnswer(in app: XCUIApplication, systemPromptButtonIndex: Int? = nil) {
+    private func recordCurrentAnswer(
+        in app: XCUIApplication,
+        systemPromptButtonIndex: Int? = nil,
+        recordingText: String = "Recording your answer.",
+        submitButtonTitle: String = "Submit answer"
+    ) {
         app.buttons["Start recording"].firstMatch.tap()
 
         if let systemPromptButtonIndex {
@@ -106,13 +150,13 @@ final class MicrophoneRecordingUITests: XCTestCase {
         }
 
         XCTAssertTrue(app.buttons["Stop recording"].firstMatch.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Recording your answer."].exists)
+        XCTAssertTrue(app.staticTexts[recordingText].exists)
 
         RunLoop.current.run(until: Date().addingTimeInterval(2.4))
         app.buttons["Stop recording"].firstMatch.tap()
 
         XCTAssertTrue(app.staticTexts["Ready to submit."].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["Submit answer"].firstMatch.exists)
+        XCTAssertTrue(app.buttons[submitButtonTitle].firstMatch.exists)
     }
 
     @MainActor
