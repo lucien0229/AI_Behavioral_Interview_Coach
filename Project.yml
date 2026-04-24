@@ -25,6 +25,7 @@ targets:
     scheme:
       testTargets:
         - AI_Behavioral_Interview_CoachTests
+        - AI_Behavioral_Interview_CoachUITests
   AI_Behavioral_Interview_CoachTests:
     type: bundle.unit-test
     platform: iOS
@@ -38,6 +39,19 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.wxm.AIBehavioralInterviewCoachTests
         GENERATE_INFOPLIST_FILE: "YES"
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/AI Behavioral Interview Coach.app/AI Behavioral Interview Coach"
+  AI_Behavioral_Interview_CoachUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: AI_Behavioral_Interview_CoachUITests
+    dependencies:
+      - target: AI_Behavioral_Interview_Coach
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.wxm.AIBehavioralInterviewCoachUITests
+        GENERATE_INFOPLIST_FILE: "YES"
+        TEST_TARGET_NAME: AI_Behavioral_Interview_Coach
 schemes:
   AI_Behavioral_Interview_Coach:
     build:
@@ -46,3 +60,4 @@ schemes:
     test:
       targets:
         - AI_Behavioral_Interview_CoachTests
+        - AI_Behavioral_Interview_CoachUITests
