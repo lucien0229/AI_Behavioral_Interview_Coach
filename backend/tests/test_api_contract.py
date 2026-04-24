@@ -53,6 +53,50 @@ def test_bootstrap_is_idempotent_and_home_matches_ios_contract():
     assert home["last_training_summary"] is None
 
 
+def test_sqlite_store_persists_state_and_idempotency_across_app_restarts(tmp_path):
+    database_path = tmp_path / "api.sqlite3"
+    first_client = TestClient(create_app(database_path=str(database_path)))
+    _, auth = bootstrap(first_client)
+
+    resume = data(
+        first_client.post(
+            "/api/v1/resumes",
+            files={"file": ("alex_resume.pdf", b"%PDF synthetic resume", "application/pdf")},
+            data={"source_language": "en"},
+            headers={**auth, "Idempotency-Key": "idem-resume"},
+        )
+    )
+    created = data(
+        first_client.post(
+            "/api/v1/training-sessions",
+            json={"training_focus": "ownership"},
+            headers={**auth, "Idempotency-Key": "idem-create"},
+        )
+    )
+
+    restarted_client = TestClient(create_app(database_path=str(database_path)))
+    home = data(restarted_client.get("/api/v1/home", headers=auth))
+    repeated_create = data(
+        restarted_client.post(
+            "/api/v1/training-sessions",
+            json={"training_focus": "ownership"},
+            headers={**auth, "Idempotency-Key": "idem-create"},
+        )
+    )
+    question = data(restarted_client.get(f"/api/v1/training-sessions/{created['session_id']}", headers=auth))
+
+    second_restart_client = TestClient(create_app(database_path=str(database_path)))
+    home_after_read = data(second_restart_client.get("/api/v1/home", headers=auth))
+
+    assert home["active_resume"]["resume_id"] == resume["resume_id"]
+    assert home["active_session"]["session_id"] == created["session_id"]
+    assert home["usage_balance"]["free_session_credits_remaining"] == 1
+    assert home["usage_balance"]["reserved_session_credits"] == 1
+    assert repeated_create == created
+    assert question["status"] == "waiting_first_answer"
+    assert home_after_read["active_session"]["status"] == "waiting_first_answer"
+
+
 def test_resume_upload_and_redo_training_flow_match_ios_remote_contract():
     client = TestClient(create_app())
     _, auth = bootstrap(client)
