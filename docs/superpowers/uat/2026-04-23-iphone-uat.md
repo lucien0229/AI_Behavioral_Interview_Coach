@@ -15,13 +15,14 @@
 - Added XCUITest foreground coverage for Home, Privacy Notice, and Resume Upload entry screens
 - Added XCUITest foreground coverage for microphone allow/deny states
 - Added XCUITest foreground coverage for first-answer recording reaching the ready-to-submit state
+- Added XCUITest foreground coverage for first-answer submission, follow-up answering, and feedback display
 
 ## Automated checks
 
 - `git diff --check` passed
 - `xcrun swiftc -typecheck $(rg --files AI_Behavioral_Interview_Coach -g'*.swift')` passed
 - `xcodebuild -quiet test -scheme AI_Behavioral_Interview_Coach -destination 'id=F592A705-BDE3-495D-9F13-1134BC4F31DD' -resultBundlePath /tmp/aibic-iphone-ui.xcresult` passed
-- Result bundle summary: 42 tests passed, 0 failed, 0 skipped
+- Result bundle summary: 43 tests passed, 0 failed, 0 skipped
 - UI screenshot attachments exported to `/tmp/aibic-iphone-ui-attachments`
 
 ## Simulator validation
@@ -33,6 +34,7 @@
 - Full-screen screenshot output now matches iPhone geometry instead of the previous card-like capture
 - Microphone allow path verifies the system permission prompt, the first-answer recording controls, and the ready-to-submit state
 - Microphone deny path verifies the system permission prompt and the in-app microphone guidance sheet
+- Follow-up path verifies first-answer submit -> follow-up screen -> follow-up answer submit -> feedback screen
 - Recording UI tests use `AIBIC_UI_TEST_FAKE_AUDIO=1` after the real permission decision so simulator host audio hardware does not make the suite flaky
 
 ## Resolved issue
@@ -41,12 +43,14 @@ The previous `simctl io ... screenshot` and UI screenshot output showed the app 
 
 Current local capture artifact:
 
-- Home: `/tmp/aibic-iphone-ui-attachments/467FB9E9-1227-4845-B18A-E2E1A956C46E.png`
-- Privacy Notice: `/tmp/aibic-iphone-ui-attachments/8F2B0AE8-7F21-49BF-86BF-031A5A65716E.png`
-- Resume Upload: `/tmp/aibic-iphone-ui-attachments/2D86D8DB-84DC-4908-89C8-C8C6B67193CB.png`
-- First Answer Recorded: `/tmp/aibic-iphone-ui-attachments/FF8DDBFC-E784-47DD-89EF-C72AD271396F.png`
-- Microphone Permission Sheet: `/tmp/aibic-iphone-ui-attachments/2360CDB8-AE71-4A2E-9663-B035D634064F.png`
+- Home: `/tmp/aibic-iphone-ui-attachments/ED26AD09-3313-4C06-877E-574679E5200D.png`
+- Privacy Notice: `/tmp/aibic-iphone-ui-attachments/B5FE9CD9-9D17-4F06-B630-D7FAD8D45B63.png`
+- Resume Upload: `/tmp/aibic-iphone-ui-attachments/3992612E-7C38-4786-8405-6F55494AA15D.png`
+- First Answer Recorded: `/tmp/aibic-iphone-ui-attachments/23A0096E-0297-494A-A586-C7459751D99A.png`
+- Follow-up Ready: `/tmp/aibic-iphone-ui-attachments/349EBEA1-EAA4-43E3-A4D8-AE1EE0638C8A.png`
+- Feedback Ready: `/tmp/aibic-iphone-ui-attachments/F972CFBA-500B-41EC-A679-4A82D92E22AA.png`
+- Microphone Permission Sheet: `/tmp/aibic-iphone-ui-attachments/B04FB10B-1FA3-4C01-949E-60B2723F0DD0.png`
 
 ## Recommended next action
 
-Extend foreground UI automation from first-answer submission into follow-up generation, follow-up answer submission, and feedback display. This is the next highest-risk user journey after microphone and recording coverage.
+Extend foreground UI automation through redo and completion: tap `Redo this answer`, submit the redo recording, verify completed result, then verify the practice appears in history. This is now the highest-risk remaining end-to-end training path.

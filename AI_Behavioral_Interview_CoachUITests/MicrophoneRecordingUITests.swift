@@ -41,6 +41,31 @@ final class MicrophoneRecordingUITests: XCTestCase {
     }
 
     @MainActor
+    func testFirstAnswerSubmissionReachesFollowupAndFeedback() throws {
+        let app = makeReadyResumeApp()
+        app.resetAuthorizationStatus(for: .microphone)
+
+        startFirstAnswer(in: app)
+        recordCurrentAnswer(in: app, systemPromptButtonIndex: 1)
+        app.buttons["Submit answer"].firstMatch.tap()
+
+        XCTAssertTrue(app.staticTexts["Follow-up"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["Answer the follow-up"].exists)
+        XCTAssertTrue(app.buttons["Start recording"].firstMatch.exists)
+        addScreenshot(named: "12-followup-ready")
+
+        recordCurrentAnswer(in: app)
+        app.buttons["Submit answer"].firstMatch.tap()
+
+        XCTAssertTrue(app.staticTexts["Feedback"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["Biggest gap"].exists)
+        XCTAssertTrue(app.staticTexts["Why it matters"].exists)
+        XCTAssertTrue(app.staticTexts["Redo priority"].exists)
+        XCTAssertTrue(app.staticTexts["You described the team outcome before making your personal decision clear."].exists)
+        addScreenshot(named: "18-feedback-ready")
+    }
+
+    @MainActor
     private func makeReadyResumeApp() -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment["AIBIC_UI_TEST_READY_RESUME"] = "1"
@@ -70,6 +95,24 @@ final class MicrophoneRecordingUITests: XCTestCase {
         let button = microphonePrompt.buttons.element(boundBy: index)
         XCTAssertTrue(button.exists)
         button.tap()
+    }
+
+    @MainActor
+    private func recordCurrentAnswer(in app: XCUIApplication, systemPromptButtonIndex: Int? = nil) {
+        app.buttons["Start recording"].firstMatch.tap()
+
+        if let systemPromptButtonIndex {
+            tapSystemMicrophonePromptButton(at: systemPromptButtonIndex)
+        }
+
+        XCTAssertTrue(app.buttons["Stop recording"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Recording your answer."].exists)
+
+        RunLoop.current.run(until: Date().addingTimeInterval(2.4))
+        app.buttons["Stop recording"].firstMatch.tap()
+
+        XCTAssertTrue(app.staticTexts["Ready to submit."].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Submit answer"].firstMatch.exists)
     }
 
     @MainActor
