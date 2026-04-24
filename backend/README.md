@@ -35,6 +35,15 @@ app = create_app(
 )
 ```
 
+For the default ASGI entrypoint (`uvicorn backend.app:app`), Apple purchase verification is enabled when these environment variables are present:
+
+```bash
+export AIBIC_APPLE_ROOT_CERT_PATHS="/path/to/AppleRootCA-G3.cer"
+export AIBIC_IOS_BUNDLE_ID="com.example.app"
+export AIBIC_APPLE_ENVIRONMENT="sandbox" # or production
+export AIBIC_APPLE_APP_ID="1234567890"   # required by Apple for production
+```
+
 ## Verify
 
 ```bash
@@ -46,8 +55,9 @@ python3 -m pytest backend/tests/test_api_contract.py -q
 - In-memory anonymous users, resumes, sessions, idempotency records, and purchase state by default.
 - Optional SQLite state snapshot persistence for local restart testing and backend provider wiring.
 - Injectable provider bundle for resume parsing, training content generation, audio transcription, and Apple purchase verification.
+- Apple App Store signed transaction verification provider using Apple's App Store Server Python library.
 - iOS-compatible envelope responses: `request_id`, `data`, `error`.
 - Covered flows: bootstrap, home, resume upload/status/delete, training session lifecycle, billing stubs, and delete-all-data.
-- Mock AI, ASR, resume parsing, Apple verification, and file storage providers.
+- Default mock AI, ASR, resume parsing, purchase verification, and file storage providers; Apple purchase verification can be enabled through environment configuration.
 
-The next backend step is replacing the SQLite snapshot and default mock providers with production dependencies: Postgres, object storage, Apple App Store Server verification, ASR, and AI generation.
+The next backend step is replacing the SQLite snapshot and remaining default mock providers with production dependencies: Postgres, object storage, ASR, and AI generation.
