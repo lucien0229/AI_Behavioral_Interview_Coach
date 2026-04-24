@@ -55,6 +55,100 @@ final class AppModelTests: XCTestCase {
     }
 
     @MainActor
+    func testStartTrainingPollsQuestionGeneratingSessionUntilFirstAnswerReady() async throws {
+        let processingSession = TrainingSession.fixture(status: .questionGenerating)
+        let readySession = TrainingSession.fixture(status: .waitingFirstAnswer)
+        let service = PollingCoachService(
+            createdSession: processingSession,
+            sessionResponses: [readySession]
+        )
+        let model = AppModel(service: service)
+
+        await model.startTraining()
+
+        let sessionRequestIDs = await service.sessionRequestIDs()
+        XCTAssertEqual(model.currentSession?.status, .waitingFirstAnswer)
+        XCTAssertEqual(model.navigationPath, [.trainingSession(sessionID: processingSession.id)])
+        XCTAssertEqual(sessionRequestIDs, [processingSession.id])
+    }
+
+    @MainActor
+    func testLoadSessionPollsProcessingSessionUntilFirstAnswerReady() async throws {
+        let processingSession = TrainingSession.fixture(status: .questionGenerating)
+        let readySession = TrainingSession.fixture(status: .waitingFirstAnswer)
+        let service = PollingCoachService(
+            sessionResponses: [processingSession, readySession]
+        )
+        let model = AppModel(service: service)
+
+        await model.loadSession(id: processingSession.id)
+
+        let sessionRequestIDs = await service.sessionRequestIDs()
+        XCTAssertEqual(model.currentSession?.status, .waitingFirstAnswer)
+        XCTAssertEqual(sessionRequestIDs, [processingSession.id, processingSession.id])
+    }
+
+    @MainActor
+    func testSubmitFirstAnswerPollsProcessingSessionUntilFollowupReady() async throws {
+        let waitingSession = TrainingSession.fixture(status: .waitingFirstAnswer)
+        let processingSession = TrainingSession.fixture(status: .firstAnswerProcessing)
+        let readySession = TrainingSession.fixture(status: .waitingFollowupAnswer)
+        let service = PollingCoachService(
+            firstAnswerSession: processingSession,
+            sessionResponses: [readySession]
+        )
+        let model = AppModel(service: service)
+        model.currentSession = waitingSession
+
+        let didSubmit = await model.submitFirstAnswer(recording: .testFixture)
+
+        let sessionRequestIDs = await service.sessionRequestIDs()
+        XCTAssertTrue(didSubmit)
+        XCTAssertEqual(model.currentSession?.status, .waitingFollowupAnswer)
+        XCTAssertEqual(sessionRequestIDs, [waitingSession.id])
+    }
+
+    @MainActor
+    func testSubmitFollowupAnswerPollsProcessingSessionUntilFeedbackReady() async throws {
+        let waitingSession = TrainingSession.fixture(status: .waitingFollowupAnswer)
+        let processingSession = TrainingSession.fixture(status: .feedbackGenerating)
+        let readySession = TrainingSession.fixture(status: .redoAvailable)
+        let service = PollingCoachService(
+            followupAnswerSession: processingSession,
+            sessionResponses: [readySession]
+        )
+        let model = AppModel(service: service)
+        model.currentSession = waitingSession
+
+        let didSubmit = await model.submitFollowupAnswer(recording: .testFixture)
+
+        let sessionRequestIDs = await service.sessionRequestIDs()
+        XCTAssertTrue(didSubmit)
+        XCTAssertEqual(model.currentSession?.status, .redoAvailable)
+        XCTAssertEqual(sessionRequestIDs, [waitingSession.id])
+    }
+
+    @MainActor
+    func testSubmitRedoPollsProcessingSessionUntilCompleted() async throws {
+        let redoSession = TrainingSession.fixture(status: .redoAvailable)
+        let processingSession = TrainingSession.fixture(status: .redoEvaluating)
+        let completedSession = TrainingSession.fixture(status: .completed)
+        let service = PollingCoachService(
+            redoSession: processingSession,
+            sessionResponses: [completedSession]
+        )
+        let model = AppModel(service: service)
+        model.currentSession = redoSession
+
+        let didSubmit = await model.submitRedo(recording: .testFixture)
+
+        let sessionRequestIDs = await service.sessionRequestIDs()
+        XCTAssertTrue(didSubmit)
+        XCTAssertEqual(model.currentSession?.status, .completed)
+        XCTAssertEqual(sessionRequestIDs, [redoSession.id])
+    }
+
+    @MainActor
     func testDeleteAllDataClearsTransientAppState() async throws {
         let service = MockCoachService(processingDelayNanoseconds: 0)
         _ = try await service.bootstrap()
@@ -118,5 +212,114 @@ final class AppModelTests: XCTestCase {
         XCTAssertEqual(model.navigationPath, [.historyList])
         XCTAssertNil(model.currentSession)
         XCTAssertNil(model.activeSheet)
+    }
+}
+
+private actor PollingCoachService: CoachService {
+    private let createdSession: TrainingSession?
+    private let firstAnswerSession: TrainingSession?
+    private let followupAnswerSession: TrainingSession?
+    private let redoSession: TrainingSession?
+    private var queuedSessionResponses: [TrainingSession]
+    private var requestedSessionIDs: [String] = []
+
+    init(
+        createdSession: TrainingSession? = nil,
+        firstAnswerSession: TrainingSession? = nil,
+        followupAnswerSession: TrainingSession? = nil,
+        redoSession: TrainingSession? = nil,
+        sessionResponses: [TrainingSession] = []
+    ) {
+        self.createdSession = createdSession
+        self.firstAnswerSession = firstAnswerSession
+        self.followupAnswerSession = followupAnswerSession
+        self.redoSession = redoSession
+        queuedSessionResponses = sessionResponses
+    }
+
+    func sessionRequestIDs() -> [String] {
+        requestedSessionIDs
+    }
+
+    func bootstrap() async throws -> BootstrapContext {
+        BootstrapContext(
+            appUserID: "test-user",
+            accessToken: "test-token",
+            appAccountToken: "test-account-token"
+        )
+    }
+
+    func home() async throws -> HomeSnapshot {
+        HomeSnapshot(activeResume: .readyUsable(fileName: "resume.pdf"), activeSession: nil, credits: .initialFree, recentPractice: [])
+    }
+
+    func uploadResume(fileName: String) async throws -> ActiveResume {
+        .readyUsable(fileName: fileName)
+    }
+
+    func deleteResume(mode: DeleteResumeMode) async throws -> HomeSnapshot {
+        try await home()
+    }
+
+    func createTrainingSession(focus: TrainingFocus?) async throws -> TrainingSession {
+        guard let createdSession else {
+            throw CoachServiceError.mockFailure(message: "Missing created session")
+        }
+        return createdSession
+    }
+
+    func session(id: String) async throws -> TrainingSession {
+        requestedSessionIDs.append(id)
+        guard !queuedSessionResponses.isEmpty else {
+            throw CoachServiceError.sessionNotFound
+        }
+        return queuedSessionResponses.removeFirst()
+    }
+
+    func submitFirstAnswer(sessionID: String, recording: RecordedAudio) async throws -> TrainingSession {
+        guard let firstAnswerSession else {
+            throw CoachServiceError.mockFailure(message: "Missing first answer session")
+        }
+        return firstAnswerSession
+    }
+
+    func submitFollowupAnswer(sessionID: String, recording: RecordedAudio) async throws -> TrainingSession {
+        guard let followupAnswerSession else {
+            throw CoachServiceError.mockFailure(message: "Missing follow-up answer session")
+        }
+        return followupAnswerSession
+    }
+
+    func submitRedo(sessionID: String, recording: RecordedAudio) async throws -> TrainingSession {
+        guard let redoSession else {
+            throw CoachServiceError.mockFailure(message: "Missing redo session")
+        }
+        return redoSession
+    }
+
+    func skipRedo(sessionID: String) async throws -> TrainingSession {
+        TrainingSession.fixture(status: .completed)
+    }
+
+    func history() async throws -> [PracticeSummary] {
+        []
+    }
+
+    func historyDetail(id: String) async throws -> TrainingSession {
+        try await session(id: id)
+    }
+
+    func deletePractice(id: String) async throws -> [PracticeSummary] {
+        []
+    }
+
+    func mockPurchaseSprintPack() async throws {
+    }
+
+    func mockRestorePurchase() async throws {
+    }
+
+    func deleteAllData() async throws -> BootstrapContext {
+        try await bootstrap()
     }
 }
