@@ -281,3 +281,153 @@ def test_reusing_idempotency_key_on_different_write_returns_conflict():
 
     assert response.status_code == 409
     assert error(response)["code"] == "IDEMPOTENCY_CONFLICT"
+
+
+def test_provider_bundle_replaces_backend_mock_boundaries():
+    from backend.app import BackendProviders
+
+    resume_parser = StubResumeParser()
+    training_content = StubTrainingContentProvider()
+    audio_transcriber = StubAudioTranscriber()
+    purchase_verifier = StubPurchaseVerifier(session_credits=3)
+    client = TestClient(
+        create_app(
+            providers=BackendProviders(
+                resume_parser=resume_parser,
+                training_content=training_content,
+                audio_transcriber=audio_transcriber,
+                purchase_verifier=purchase_verifier,
+            )
+        )
+    )
+    _, auth = bootstrap(client)
+
+    resume = data(
+        client.post(
+            "/api/v1/resumes",
+            files={"file": ("alex_resume.pdf", b"%PDF synthetic resume", "application/pdf")},
+            data={"source_language": "en"},
+            headers={**auth, "Idempotency-Key": "idem-resume"},
+        )
+    )
+    created = data(
+        client.post(
+            "/api/v1/training-sessions",
+            json={"training_focus": "conflict_handling"},
+            headers={**auth, "Idempotency-Key": "idem-create"},
+        )
+    )
+    question = data(client.get(f"/api/v1/training-sessions/{created['session_id']}", headers=auth))
+
+    data(
+        client.post(
+            f"/api/v1/training-sessions/{created['session_id']}/first-answer",
+            files={"audio_file": ("first.m4a", b"audio", "audio/mp4")},
+            data={"duration_seconds": "3.25"},
+            headers={**auth, "Idempotency-Key": "idem-first"},
+        )
+    )
+    follow_up = data(client.get(f"/api/v1/training-sessions/{created['session_id']}", headers=auth))
+    data(
+        client.post(
+            f"/api/v1/training-sessions/{created['session_id']}/follow-up-answer",
+            files={"audio_file": ("follow.m4a", b"audio", "audio/mp4")},
+            data={"duration_seconds": "4.5"},
+            headers={**auth, "Idempotency-Key": "idem-follow"},
+        )
+    )
+    feedback = data(client.get(f"/api/v1/training-sessions/{created['session_id']}", headers=auth))
+    data(
+        client.post(
+            f"/api/v1/training-sessions/{created['session_id']}/redo",
+            files={"audio_file": ("redo.m4a", b"audio", "audio/mp4")},
+            data={"duration_seconds": "5.0"},
+            headers={**auth, "Idempotency-Key": "idem-redo"},
+        )
+    )
+    completed = data(client.get(f"/api/v1/training-sessions/{created['session_id']}", headers=auth))
+    entitlement = data(client.get("/api/v1/billing/entitlement", headers=auth))
+    verified = data(
+        client.post(
+            "/api/v1/billing/apple/verify",
+            json={
+                "product_id": "coach_sprint_pack_01",
+                "transaction_id": "apple_transaction_id",
+                "original_transaction_id": "apple_original_transaction_id",
+                "app_account_token": entitlement["app_account_token"],
+                "signed_transaction_info": "sandbox-jws",
+                "environment": "sandbox",
+            },
+            headers={**auth, "Idempotency-Key": "idem-verify"},
+        )
+    )
+
+    assert resume["profile_quality_status"] == "limited"
+    assert resume_parser.calls == [("alex_resume.pdf", "en")]
+    assert question["question"]["question_text"] == "Injected question for conflict_handling"
+    assert follow_up["follow_up"]["follow_up_text"] == "Injected follow-up for conflict_handling"
+    assert feedback["feedback"]["visible_assessments"]["personal_ownership"] == "Strong"
+    assert completed["redo_review"]["improvement_status"] == "improved"
+    assert audio_transcriber.stages == ["first_answer", "follow_up_answer", "redo"]
+    assert purchase_verifier.transaction_ids == ["apple_transaction_id"]
+    assert verified["usage_balance"]["paid_session_credits_remaining"] == 3
+
+
+class StubResumeParser:
+    def __init__(self):
+        self.calls = []
+
+    def parse(self, file_name, source_language, raw_body):
+        self.calls.append((file_name, source_language))
+        return {"status": "ready", "profile_quality_status": "limited"}
+
+
+class StubTrainingContentProvider:
+    def question_for_focus(self, focus):
+        return f"Injected question for {focus}"
+
+    def follow_up_for_focus(self, focus):
+        return f"Injected follow-up for {focus}"
+
+    def feedback(self):
+        return {
+            "visible_assessments": {
+                "answered_the_question": "Strong",
+                "story_fit": "Strong",
+                "personal_ownership": "Strong",
+                "evidence_and_outcome": "Mixed",
+                "holds_up_under_follow_up": "Mixed",
+            },
+            "strongest_signal": "Injected signal.",
+            "biggest_gap": "Injected gap.",
+            "why_it_matters": "Injected why.",
+            "redo_priority": "Injected redo priority.",
+            "redo_outline": ["Injected outline."],
+        }
+
+    def redo_review(self):
+        return {
+            "improvement_status": "improved",
+            "headline": "Injected improvement.",
+            "still_missing": "Injected missing detail.",
+            "next_attempt": "Injected next attempt.",
+        }
+
+
+class StubAudioTranscriber:
+    def __init__(self):
+        self.stages = []
+
+    def transcribe(self, stage, raw_body, duration_seconds):
+        self.stages.append(stage)
+        return {"text": f"{stage} transcript", "duration_seconds": duration_seconds}
+
+
+class StubPurchaseVerifier:
+    def __init__(self, session_credits):
+        self.session_credits = session_credits
+        self.transaction_ids = []
+
+    def verify(self, payload):
+        self.transaction_ids.append(payload["transaction_id"])
+        return {"transaction_id": payload["transaction_id"], "session_credits": self.session_credits}
