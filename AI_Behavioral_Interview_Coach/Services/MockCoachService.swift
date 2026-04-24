@@ -1,0 +1,560 @@
+import Foundation
+
+actor MockCoachService: CoachService {
+    private let processingDelayNanoseconds: UInt64
+    private let now: @Sendable () -> Date
+    private var bootstrapContext: BootstrapContext?
+    private var activeResume: ActiveResume?
+    private var activeResumeUploadID: UUID?
+    private var credits = UsageBalance.initialFree
+    private var activeSession: TrainingSession?
+    private var completedSessions: [TrainingSession] = []
+
+    init(
+        processingDelayNanoseconds: UInt64 = 350_000_000,
+        now: @escaping @Sendable () -> Date = { Date() },
+        initialActiveResume: ActiveResume? = nil,
+        initialCredits: UsageBalance = .initialFree
+    ) {
+        self.processingDelayNanoseconds = processingDelayNanoseconds
+        self.now = now
+        activeResume = initialActiveResume
+        credits = initialCredits
+    }
+
+    func bootstrap() async throws -> BootstrapContext {
+        try await simulateProcessingDelay()
+
+        if let bootstrapContext {
+            return bootstrapContext
+        }
+
+        let context = BootstrapContext(
+            appUserID: "mock_user_alex",
+            accessToken: "mock_access_token",
+            appAccountToken: "mock_app_account_token"
+        )
+        bootstrapContext = context
+        return context
+    }
+
+    func home() async throws -> HomeSnapshot {
+        try requireBootstrap()
+        try await simulateProcessingDelay()
+        return homeSnapshot()
+    }
+
+    func uploadResume(fileName: String) async throws -> ActiveResume {
+        try requireBootstrap()
+        try validateResumeFileName(fileName)
+
+        let uploadID = UUID()
+        let previousResume = activeResume
+        activeResumeUploadID = uploadID
+        activeResume = .uploading(fileName: fileName)
+        do {
+            try await simulateProcessingDelay()
+
+            try requireCurrentResumeUpload(id: uploadID)
+            activeResume = .parsing(fileName: fileName)
+            try await simulateProcessingDelay()
+
+            try requireCurrentResumeUpload(id: uploadID)
+            let resume = ActiveResume.readyUsable(fileName: fileName)
+            activeResume = resume
+            activeResumeUploadID = nil
+            return resume
+        } catch is CancellationError {
+            restoreCancelledUpload(id: uploadID, previousResume: previousResume)
+            throw CancellationError()
+        }
+    }
+
+    func deleteResume(mode: DeleteResumeMode) async throws -> HomeSnapshot {
+        try requireBootstrap()
+        activeResumeUploadID = nil
+        activeResume = nil
+
+        if mode == .resumeAndLinkedTraining {
+            activeSession = nil
+            completedSessions.removeAll()
+        }
+
+        return homeSnapshot()
+    }
+
+    func createTrainingSession(focus: TrainingFocus?) async throws -> TrainingSession {
+        try requireBootstrap()
+
+        guard activeSession == nil else {
+            throw CoachServiceError.activeSessionExists
+        }
+
+        try requireReadyResume()
+
+        guard credits.availableSessionCredits > 0 else {
+            throw CoachServiceError.noCredits
+        }
+
+        let resolvedFocus = focus ?? .ownership
+
+        let session = TrainingSession(
+            id: "session_\(UUID().uuidString)",
+            status: .questionGenerating,
+            focus: resolvedFocus,
+            questionText: questionText(for: resolvedFocus),
+            followupText: nil,
+            feedback: nil,
+            redoReview: nil,
+            completionReason: nil,
+            completedAt: nil
+        )
+        activeSession = session
+        do {
+            try await simulateProcessingDelay()
+
+            var readySession = try requireActiveSession(id: session.id, status: .questionGenerating)
+            readySession.status = .waitingFirstAnswer
+            activeSession = readySession
+            return readySession
+        } catch is CancellationError {
+            clearCancelledSession(id: session.id, status: .questionGenerating)
+            throw CancellationError()
+        }
+    }
+
+    func session(id: String) async throws -> TrainingSession {
+        try requireBootstrap()
+        try await simulateProcessingDelay()
+
+        if let activeSession, activeSession.id == id {
+            return activeSession
+        }
+
+        guard let completedSession = completedSessions.first(where: { $0.id == id }) else {
+            throw CoachServiceError.sessionNotFound
+        }
+
+        return completedSession
+    }
+
+    func submitFirstAnswer(sessionID: String) async throws -> TrainingSession {
+        var session = try requireActiveSession(id: sessionID)
+
+        guard session.status == .waitingFirstAnswer else {
+            throw CoachServiceError.invalidSessionState
+        }
+
+        session.status = .firstAnswerProcessing
+        activeSession = session
+        do {
+            try await simulateProcessingDelay()
+
+            session = try requireActiveSession(id: sessionID, status: .firstAnswerProcessing)
+            session.status = .followupGenerating
+            activeSession = session
+            try await simulateProcessingDelay()
+
+            session = try requireActiveSession(id: sessionID, status: .followupGenerating)
+            session.status = .waitingFollowupAnswer
+            session.followupText = followupText(for: session.focus)
+            activeSession = session
+            return session
+        } catch is CancellationError {
+            revertCancelledFirstAnswer(sessionID: sessionID)
+            throw CancellationError()
+        }
+    }
+
+    func submitFollowupAnswer(sessionID: String) async throws -> TrainingSession {
+        var session = try requireActiveSession(id: sessionID)
+
+        guard session.status == .waitingFollowupAnswer else {
+            throw CoachServiceError.invalidSessionState
+        }
+
+        session.status = .followupAnswerProcessing
+        activeSession = session
+        do {
+            try await simulateProcessingDelay()
+
+            session = try requireActiveSession(id: sessionID, status: .followupAnswerProcessing)
+            session.status = .feedbackGenerating
+            activeSession = session
+            try await simulateProcessingDelay()
+
+            session = try requireActiveSession(id: sessionID, status: .feedbackGenerating)
+            session.status = .redoAvailable
+            session.feedback = mockFeedback
+            activeSession = session
+            credits.availableSessionCredits = max(0, credits.availableSessionCredits - 1)
+            return session
+        } catch is CancellationError {
+            revertCancelledFollowupAnswer(sessionID: sessionID)
+            throw CancellationError()
+        }
+    }
+
+    func submitRedo(sessionID: String) async throws -> TrainingSession {
+        var session = try requireActiveSession(id: sessionID)
+
+        guard session.status == .redoAvailable else {
+            throw CoachServiceError.invalidSessionState
+        }
+
+        session.status = .redoProcessing
+        activeSession = session
+        do {
+            try await simulateProcessingDelay()
+
+            session = try requireActiveSession(id: sessionID, status: .redoProcessing)
+            session.status = .redoEvaluating
+            activeSession = session
+            try await simulateProcessingDelay()
+
+            session = try requireActiveSession(id: sessionID, status: .redoEvaluating)
+            session.status = .completed
+            session.redoReview = mockRedoReview
+            session.completionReason = .redoReviewGenerated
+            session = completeActiveSession(session)
+            return session
+        } catch is CancellationError {
+            revertCancelledRedo(sessionID: sessionID)
+            throw CancellationError()
+        }
+    }
+
+    func skipRedo(sessionID: String) async throws -> TrainingSession {
+        var session = try requireActiveSession(id: sessionID, status: .redoAvailable)
+        session.status = .completed
+        session.completionReason = .redoSkipped
+        return completeActiveSession(session)
+    }
+
+    func history() async throws -> [PracticeSummary] {
+        try requireBootstrap()
+        try await simulateProcessingDelay()
+        return completedSessions.map(practiceSummary)
+    }
+
+    func historyDetail(id: String) async throws -> TrainingSession {
+        try requireBootstrap()
+        try await simulateProcessingDelay()
+
+        guard let session = completedSessions.first(where: { $0.id == id }) else {
+            throw CoachServiceError.sessionNotFound
+        }
+
+        return session
+    }
+
+    func deletePractice(id: String) async throws -> [PracticeSummary] {
+        try requireBootstrap()
+        try await simulateProcessingDelay()
+
+        guard let index = completedSessions.firstIndex(where: { $0.id == id }) else {
+            throw CoachServiceError.sessionNotFound
+        }
+
+        completedSessions.remove(at: index)
+        return completedSessions.map(practiceSummary)
+    }
+
+    func mockPurchaseSprintPack() async throws {
+        try requireBootstrap()
+        credits.availableSessionCredits += 5
+    }
+
+    func mockRestorePurchase() async throws {
+        try requireBootstrap()
+        credits.availableSessionCredits += 5
+    }
+
+    func deleteAllData() async throws -> BootstrapContext {
+        activeResumeUploadID = nil
+        activeResume = nil
+        credits = .initialFree
+        activeSession = nil
+        completedSessions.removeAll()
+
+        let context = BootstrapContext(
+            appUserID: "mock_user_alex",
+            accessToken: "mock_access_token",
+            appAccountToken: "mock_app_account_token"
+        )
+        bootstrapContext = context
+        return context
+    }
+}
+
+private extension MockCoachService {
+    var mockFeedback: FeedbackPayload {
+        FeedbackPayload(
+            biggestGap: "You described the team outcome before making your personal decision clear.",
+            whyItMatters: "Behavioral interviewers need to understand the judgment you owned, not just the project result.",
+            redoPriority: "Lead with the decision you made, the tradeoff you accepted, and the measurable result.",
+            redoOutline: [
+                "Set the business context in one sentence.",
+                "Name the decision you personally owned.",
+                "Explain the tradeoff and why it mattered.",
+                "Close with the result and what changed."
+            ],
+            strongestSignal: "The example has real scope and shows cross-functional pressure.",
+            assessments: [
+                AssessmentLine(id: "answered_the_question", label: "Answered the question", status: .strong),
+                AssessmentLine(id: "story_fit", label: "Story fit", status: .strong),
+                AssessmentLine(id: "personal_ownership", label: "Personal ownership", status: .weak),
+                AssessmentLine(id: "evidence_and_outcome", label: "Evidence and outcome", status: .mixed),
+                AssessmentLine(id: "holds_up_under_follow_up", label: "Holds up under follow-up", status: .weak)
+            ]
+        )
+    }
+
+    var mockRedoReview: RedoReviewPayload {
+        RedoReviewPayload(
+            status: .partiallyImproved,
+            headline: "Clearer ownership signal.",
+            stillMissing: "The result would be stronger with one concrete metric.",
+            nextAttempt: "Keep the same structure and add the before-and-after impact."
+        )
+    }
+
+    func simulateProcessingDelay() async throws {
+        guard processingDelayNanoseconds > 0 else {
+            return
+        }
+
+        try await Task.sleep(nanoseconds: processingDelayNanoseconds)
+    }
+
+    func requireBootstrap() throws {
+        guard bootstrapContext != nil else {
+            throw CoachServiceError.notBootstrapped
+        }
+    }
+
+    func validateResumeFileName(_ fileName: String) throws {
+        let fileExtension = URL(fileURLWithPath: fileName).pathExtension.lowercased()
+        guard fileExtension == "pdf" || fileExtension == "docx" else {
+            throw CoachServiceError.unsupportedFileType
+        }
+    }
+
+    func requireReadyResume() throws {
+        guard let activeResume else {
+            throw CoachServiceError.resumeNotReady
+        }
+
+        switch activeResume {
+        case .readyUsable, .readyLimited:
+            return
+        case .uploading, .parsing, .unusable, .failed:
+            throw CoachServiceError.resumeNotReady
+        }
+    }
+
+    func requireActiveSession(id: String) throws -> TrainingSession {
+        try requireBootstrap()
+
+        guard let activeSession, activeSession.id == id else {
+            throw CoachServiceError.sessionNotFound
+        }
+
+        return activeSession
+    }
+
+    func requireActiveSession(id: String, status: TrainingSessionStatus) throws -> TrainingSession {
+        let session = try requireActiveSession(id: id)
+
+        guard session.status == status else {
+            throw CoachServiceError.invalidSessionState
+        }
+
+        return session
+    }
+
+    func requireCurrentResumeUpload(id: UUID) throws {
+        guard activeResumeUploadID == id else {
+            throw CoachServiceError.invalidSessionState
+        }
+    }
+
+    func restoreCancelledUpload(id: UUID, previousResume: ActiveResume?) {
+        guard activeResumeUploadID == id else {
+            return
+        }
+
+        switch previousResume {
+        case .readyUsable, .readyLimited, .unusable, .failed:
+            activeResume = previousResume
+        case .uploading, .parsing, nil:
+            activeResume = nil
+        }
+        activeResumeUploadID = nil
+    }
+
+    func clearCancelledSession(id: String, status: TrainingSessionStatus) {
+        guard activeSession?.id == id, activeSession?.status == status else {
+            return
+        }
+
+        activeSession = nil
+    }
+
+    func revertCancelledFirstAnswer(sessionID: String) {
+        guard var session = activeSession, session.id == sessionID else {
+            return
+        }
+
+        switch session.status {
+        case .firstAnswerProcessing, .followupGenerating:
+            session.status = .waitingFirstAnswer
+            session.followupText = nil
+            activeSession = session
+        default:
+            return
+        }
+    }
+
+    func revertCancelledFollowupAnswer(sessionID: String) {
+        guard var session = activeSession, session.id == sessionID else {
+            return
+        }
+
+        switch session.status {
+        case .followupAnswerProcessing, .feedbackGenerating:
+            session.status = .waitingFollowupAnswer
+            session.feedback = nil
+            activeSession = session
+        default:
+            return
+        }
+    }
+
+    func revertCancelledRedo(sessionID: String) {
+        guard var session = activeSession, session.id == sessionID else {
+            return
+        }
+
+        switch session.status {
+        case .redoProcessing, .redoEvaluating:
+            session.status = .redoAvailable
+            session.redoReview = nil
+            session.completionReason = nil
+            activeSession = session
+        default:
+            return
+        }
+    }
+
+    func completeActiveSession(_ session: TrainingSession) -> TrainingSession {
+        var completedSession = session
+        completedSession.completedAt = now()
+        activeSession = nil
+        completedSessions.insert(completedSession, at: 0)
+        return completedSession
+    }
+
+    func homeSnapshot() -> HomeSnapshot {
+        HomeSnapshot(
+            activeResume: activeResume,
+            activeSession: activeSession,
+            credits: credits,
+            recentPractice: completedSessions.prefix(3).map(practiceSummary)
+        )
+    }
+
+    func questionText(for focus: TrainingFocus) -> String {
+        switch focus {
+        case .ownership:
+            return "Tell me about a time you personally took ownership of an ambiguous problem and drove it to resolution."
+        case .prioritization:
+            return "Tell me about a time you had to make a high-stakes prioritization decision with incomplete information."
+        case .crossFunctionalInfluence:
+            return "Tell me about a time you influenced cross-functional partners without direct authority."
+        case .conflictHandling:
+            return "Tell me about a time you handled a serious disagreement with a teammate or stakeholder."
+        case .failureLearning:
+            return "Tell me about a time you failed, what you learned, and how your behavior changed afterward."
+        case .ambiguity:
+            return "Tell me about a time you brought structure to an ambiguous problem."
+        }
+    }
+
+    func followupText(for focus: TrainingFocus) -> String {
+        switch focus {
+        case .ownership:
+            return "What specific decision did you personally make when the outcome was still uncertain?"
+        case .prioritization:
+            return "What tradeoff did you choose, and what did you intentionally deprioritize?"
+        case .crossFunctionalInfluence:
+            return "Which stakeholder changed their position because of your influence, and why?"
+        case .conflictHandling:
+            return "What did you say or do that moved the conflict toward a decision?"
+        case .failureLearning:
+            return "What concrete behavior changed in your next similar situation?"
+        case .ambiguity:
+            return "What signal did you use first to reduce the ambiguity?"
+        }
+    }
+
+    func practiceSummary(for session: TrainingSession) -> PracticeSummary {
+        PracticeSummary(
+            id: session.id,
+            title: session.focus.historyTitle,
+            questionText: session.questionText,
+            focusLabel: session.focus.displayName,
+            completionDateText: completionDateText(for: session.completedAt),
+            redoStatusText: redoStatusText(for: session),
+            finalAssessmentSummary: finalAssessmentSummary(for: session)
+        )
+    }
+
+    func completionDateText(for date: Date?) -> String {
+        guard let date else {
+            return "Date unavailable"
+        }
+
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "MMM d"
+        return formatter.string(from: date)
+    }
+
+    func redoStatusText(for session: TrainingSession) -> String {
+        switch session.completionReason {
+        case .redoReviewGenerated:
+            return "Redo reviewed"
+        case .redoSkipped:
+            return "Redo skipped"
+        case .redoReviewUnavailable:
+            return "Redo unavailable"
+        case nil:
+            return session.status.rawValue.replacingOccurrences(of: "_", with: " ").capitalized
+        }
+    }
+
+    func finalAssessmentSummary(for session: TrainingSession) -> String {
+        if let redoReview = session.redoReview {
+            switch redoReview.status {
+            case .improved:
+                return "Improved"
+            case .partiallyImproved:
+                return "Partially improved"
+            case .notImproved:
+                return "Not improved"
+            case .regressed:
+                return "Regressed"
+            }
+        }
+
+        switch session.completionReason {
+        case .redoSkipped:
+            return "Original feedback saved"
+        case .redoReviewUnavailable:
+            return "Original feedback saved"
+        case .redoReviewGenerated, nil:
+            return session.feedback?.strongestSignal ?? "Feedback saved"
+        }
+    }
+}
