@@ -1,20 +1,20 @@
 # Release Readiness Gap Audit (iPhone)
 
 Date: 2026-04-24
-Branch: `codex/release-readiness-audit`
+Branch: `main`
 Scope: iPhone release acceptance gap audit against QA gate and current code/test evidence.
 
 ## 1. Release gate verdict
 
-Current verdict: **Code blockers closed; release sign-off pending TestFlight sandbox evidence**.
+Current verdict: **Release candidate may proceed with accepted TestFlight waiver**.
 
 The original audit found three blocking gaps:
 
-1. **B1 - Missing abandon integration**: fixed in this branch.
-2. **B2 - Missing analytics implementation evidence**: fixed in this branch for the required v1 client-side event pipeline and privacy guard.
-3. **B3 - Missing TestFlight sandbox gate evidence**: not executable from the local workspace. A runbook and evidence template now exist, but the gate remains open until QA records 5 consecutive TestFlight sandbox passes.
+1. **B1 - Missing abandon integration**: fixed and merged.
+2. **B2 - Missing analytics implementation evidence**: fixed and merged for the required v1 client-side event pipeline and privacy guard.
+3. **B3 - Missing TestFlight sandbox gate evidence**: skipped by product decision on 2026-04-24 and recorded as an accepted release risk, not as a pass.
 
-This branch should not be treated as final release sign-off until B3 has real TestFlight evidence.
+This audit supports an accepted-risk release candidate. It does not certify a full TestFlight-verified release.
 
 ## 2. Fixed blockers
 
@@ -63,7 +63,7 @@ Test evidence:
 
 ### B3 - TestFlight sandbox evidence
 
-Status: **Still pending external execution**.
+Status: **Skipped by product decision; accepted risk recorded**.
 
 The QA plan requires the end-to-end main path to pass in TestFlight sandbox 5 consecutive times. Local simulator and unit tests cannot satisfy this gate because it depends on a signed TestFlight build, StoreKit sandbox, real network conditions, and staging backend infrastructure.
 
@@ -71,11 +71,12 @@ Evidence artifact:
 
 `docs/superpowers/uat/2026-04-24-testflight-sandbox-release-gate.md`
 
-Release sign-off rule:
+Waiver rule:
 
-1. Keep this branch as **not release-signed** until the TestFlight record has 5 consecutive passing runs.
-2. If any run fails, fix the defect, reset the consecutive-pass counter, and restart the 5-run sequence.
-3. Attach backend request IDs, analytics event IDs, StoreKit sandbox transaction references, and screenshots/log snippets for each run.
+1. Mark B3 as **waived / accepted risk**, not passed.
+2. Do not use this waiver as evidence for future external release gates.
+3. Before broad external distribution, run the TestFlight sandbox gate and replace the waiver with real evidence.
+4. If a TestFlight-only defect is found later, treat it as release-blocking until fixed and reverified.
 
 ## 4. Verification run
 
@@ -105,4 +106,4 @@ Coverage note: this validates the code-level blockers and regression tests. It d
 
 ## 5. Release recommendation
 
-Recommended next action: merge the code fixes after review, then execute the TestFlight sandbox gate from the runbook before tagging a release.
+Recommended next action: tag the current `main` as an accepted-risk release candidate after local unit/UI smoke passes. Keep the skipped TestFlight gate visible in release notes.

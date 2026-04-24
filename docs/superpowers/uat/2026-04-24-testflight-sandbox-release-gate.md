@@ -1,18 +1,40 @@
 # TestFlight Sandbox Release Gate (iPhone)
 
 Date: 2026-04-24
-Branch: `codex/release-readiness-audit`
+Branch: `main`
 Scope: QA-E2E and billing gate record for iPhone TestFlight sandbox release sign-off.
 
 ## 1. Gate status
 
-Current status: **Pending execution**.
+Current status: **Skipped by product decision / accepted risk**.
 
 This record must be completed on a signed TestFlight build connected to staging API, StoreKit sandbox, object storage, AI provider sandbox, and analytics collection. Simulator evidence is useful regression coverage but does not satisfy this release gate.
 
 Release sign-off requires **5 consecutive passing TestFlight sandbox runs**. If any run fails, the counter resets after the defect is fixed.
 
-## 2. Preconditions
+## 2. Waiver record
+
+Decision date: 2026-04-24
+
+Decision source: Product decision in the Codex implementation thread.
+
+Decision: Skip the TestFlight sandbox gate for the current release-candidate path.
+
+Classification: Accepted risk, not a pass.
+
+Reason: Product chose to continue without executing the TestFlight sandbox sequence.
+
+Impact:
+
+1. Real TestFlight packaging, StoreKit sandbox, staging network, and device-only behavior remain unverified.
+2. The release candidate is supported by local unit/UI simulator evidence only.
+3. This waiver must not be reused for a broad external release without new approval.
+
+Follow-up trigger:
+
+Run the full 5-pass TestFlight sandbox gate before broad external distribution, before App Store release, or immediately after any production-only billing, analytics, auth, resume upload, or training-session defect.
+
+## 3. Preconditions
 
 1. TestFlight build installed on an iPhone target device.
 2. App points to staging API and sandbox services.
@@ -21,7 +43,7 @@ Release sign-off requires **5 consecutive passing TestFlight sandbox runs**. If 
 5. Synthetic or fully redacted English resume test data is available.
 6. Backend logs, analytics sink, and StoreKit sandbox transaction history are accessible to QA.
 
-## 3. Required evidence per run
+## 4. Required evidence per run
 
 Record these fields for each run:
 
@@ -36,7 +58,7 @@ Record these fields for each run:
 9. Screenshots or screen recording links for key checkpoints.
 10. Pass/fail result and defect link if failed.
 
-## 4. Run checklist
+## 5. Run checklist
 
 Each of the 5 runs must cover:
 
@@ -57,17 +79,17 @@ Each of the 5 runs must cover:
 15. Restore purchase succeeds or returns the documented empty restore state.
 16. Analytics payloads contain no forbidden resume, transcript, feedback, source snippet, Apple signed transaction, or app account token fields.
 
-## 5. Consecutive pass record
+## 6. Consecutive pass record
 
 | Run | Build | Device | App user ID | Session ID | Purchase/restore ref | Result | Evidence |
 |---:|---|---|---|---|---|---|---|
-| 1 |  |  |  |  |  | Pending |  |
-| 2 |  |  |  |  |  | Pending |  |
-| 3 |  |  |  |  |  | Pending |  |
-| 4 |  |  |  |  |  | Pending |  |
-| 5 |  |  |  |  |  | Pending |  |
+| 1 | Not run | Not run | Not run | Not run | Not run | Skipped | Waived by product decision on 2026-04-24 |
+| 2 | Not run | Not run | Not run | Not run | Not run | Skipped | Waived by product decision on 2026-04-24 |
+| 3 | Not run | Not run | Not run | Not run | Not run | Skipped | Waived by product decision on 2026-04-24 |
+| 4 | Not run | Not run | Not run | Not run | Not run | Skipped | Waived by product decision on 2026-04-24 |
+| 5 | Not run | Not run | Not run | Not run | Not run | Skipped | Waived by product decision on 2026-04-24 |
 
-## 6. Sign-off criteria
+## 7. Sign-off criteria
 
 Mark this gate passed only when:
 
@@ -76,3 +98,5 @@ Mark this gate passed only when:
 3. No P0/P1 defect remains open.
 4. Backend, analytics, and StoreKit evidence are attached for every run.
 5. The release readiness audit is updated from pending TestFlight evidence to ready for sign-off.
+
+Current conclusion: this gate is **waived**, not passed.
