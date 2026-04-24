@@ -4,7 +4,7 @@
 
 - Device target: iPhone only (`TARGETED_DEVICE_FAMILY = 1`)
 - Design source of truth: `docs/design/ios_hifi_pencil_original/AI_Behavioral_Interview_Coach_iOS_HiFi_v1.pen`
-- Visual reference used in this pass: `docs/design/ios_hifi_pencil_original/exports/named_png/01_home_no_resume.png`
+- Visual references used in this pass: `docs/design/ios_hifi_pencil_original/exports/named_png/01_home_no_resume.png`, `11_first_answer_idle.png`, `12_first_answer_review.png`, `14_followup_answer.png`, `15_feedback_redo_decision.png`, `17_completed_redo_review.png`
 
 ## Changes verified in this pass
 
@@ -17,12 +17,15 @@
 - Added XCUITest foreground coverage for first-answer recording reaching the ready-to-submit state
 - Added XCUITest foreground coverage for first-answer submission, follow-up answering, and feedback display
 - Added XCUITest foreground coverage for redo submission, completed result, and home history summary
+- Restored the recorded-answer and follow-up answer cards to the `.pen` horizontal primary/secondary action row
+- Aligned the completed result screen to the `.pen` summary-first hierarchy, with redo review, still-missing guidance, next attempt, history notice, and first-viewport CTAs
 
 ## Automated checks
 
 - `git diff --check` passed
 - `xcrun swiftc -typecheck $(rg --files AI_Behavioral_Interview_Coach -g'*.swift')` passed
 - `xcodebuild -quiet test -scheme AI_Behavioral_Interview_Coach -destination 'id=F592A705-BDE3-495D-9F13-1134BC4F31DD' -resultBundlePath /tmp/aibic-iphone-ui.xcresult` passed
+- Final cleanup re-run: `xcodebuild -quiet test -scheme AI_Behavioral_Interview_Coach -destination 'id=F592A705-BDE3-495D-9F13-1134BC4F31DD'` passed
 - Result bundle summary: 44 tests passed, 0 failed, 0 skipped
 - UI screenshot attachments exported to `/tmp/aibic-iphone-ui-attachments`
 
@@ -45,16 +48,23 @@ The previous `simctl io ... screenshot` and UI screenshot output showed the app 
 
 Current local capture artifact:
 
-- Home: `/tmp/aibic-iphone-ui-attachments/DA4CC7DA-6BBC-48FD-A8B8-AF5A57487AB9.png`
-- Privacy Notice: `/tmp/aibic-iphone-ui-attachments/232F3317-0D96-4076-AF3F-47714FB0E855.png`
-- Resume Upload: `/tmp/aibic-iphone-ui-attachments/391BA537-54EF-4276-B051-E0588FE529EC.png`
-- First Answer Recorded: `/tmp/aibic-iphone-ui-attachments/0753F2B0-0A7A-4464-AEEB-86FE256117B3.png`
-- Follow-up Ready: `/tmp/aibic-iphone-ui-attachments/437544D9-42DC-4ACC-9FC8-3B2E10B0E4A4.png`
-- Feedback Ready: `/tmp/aibic-iphone-ui-attachments/E8293763-35C4-453B-8A8B-73BC4989356C.png`
-- Result Complete: `/tmp/aibic-iphone-ui-attachments/B22963ED-8C8E-42B4-AF5A-9D60E8E00A60.png`
-- Home History After Redo: `/tmp/aibic-iphone-ui-attachments/B2BB0F2A-A84B-4624-B7D7-593528E4F8DC.png`
-- Microphone Permission Sheet: `/tmp/aibic-iphone-ui-attachments/4B400CCD-9207-42E3-A3BC-08FDF8A890F9.png`
+- Home: `/tmp/aibic-iphone-ui-attachments/F7249716-E033-4DCE-970D-100F3664D60A.png`
+- Privacy Notice: `/tmp/aibic-iphone-ui-attachments/EA99F584-BB13-4B1D-9BDA-3BBB3A8B2AAD.png`
+- Resume Upload: `/tmp/aibic-iphone-ui-attachments/E68A0B06-91DC-4F83-A3BA-118E7E442203.png`
+- First Answer Recorded: `/tmp/aibic-iphone-ui-attachments/A2291D43-4C8C-4DD3-B0AD-B8D5AA962CB6.png`
+- Follow-up Ready: `/tmp/aibic-iphone-ui-attachments/C5516149-8C72-4A5E-8734-0BBF8552EECA.png`
+- Feedback Ready: `/tmp/aibic-iphone-ui-attachments/897F83E6-44B7-4427-917B-04B6054883F0.png`
+- Result Complete: `/tmp/aibic-iphone-ui-attachments/D58B553A-6327-4695-89FB-30288D2EEDE9.png`
+- Home History After Redo: `/tmp/aibic-iphone-ui-attachments/E2C4A44E-4C28-4759-9EA2-7CD78E89D192.png`
+- Microphone Permission Sheet: `/tmp/aibic-iphone-ui-attachments/1D64524A-3176-4337-A5DB-844B65AE6EB9.png`
+
+## Final visual audit
+
+- Opened `.pen` source of truth in Pencil MCP and compared the iPhone training-path screenshots against the high-fidelity screen structure.
+- Fixed the clear structural mismatch where recording cards stacked `Submit answer`/`Re-record` and `Start recording`/`Back` vertically instead of using the `.pen` horizontal action row.
+- Fixed the completed result page so it no longer pushes the result CTA below a full original-feedback dump; the first viewport now follows the `.pen` hierarchy: redo status, headline, still-missing guidance, next-attempt guidance, history notice, `Start next`, and `Back home`.
+- Accepted seeded copy/focus differences between the automated test flow and exported PNG examples because the native UI structure, visual hierarchy, and interaction states now match the `.pen` intent.
 
 ## Recommended next action
 
-Run a final iPhone visual audit against the `.pen` source of truth and then prepare the branch for review. The critical training path now has foreground automation from resume-ready home through completed history.
+Prepare the branch for review. The critical iPhone training path now has foreground automation from resume-ready home through completed history, and the final visual audit against the `.pen` source of truth is complete.

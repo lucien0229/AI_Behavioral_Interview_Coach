@@ -694,19 +694,40 @@ private struct CompletedResultView: View {
                     .foregroundStyle(CoachColor.text)
 
                 if let redoReview = session.redoReview {
-                    FeedbackSection(
-                        title: "Redo review",
-                        message: redoReview.headline
-                    )
+                    VStack(alignment: .leading, spacing: CoachSpace.sm) {
+                        Text("Redo review")
+                            .font(.coachSectionTitle)
+                            .foregroundStyle(CoachColor.text48)
 
-                    ResultStatusCard(
-                        title: redoReview.status.displayName,
+                        Text(redoReview.status.displayName)
+                            .font(.system(size: 31, weight: .bold, design: .default))
+                            .foregroundStyle(CoachColor.text)
+
+                        Text(redoReview.headline)
+                            .font(.coachBody)
+                            .foregroundStyle(CoachColor.text)
+                            .lineSpacing(4)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Rectangle()
+                        .fill(CoachColor.line)
+                        .frame(height: 1)
+
+                    FeedbackSection(
+                        title: "Still missing",
                         message: redoReview.stillMissing
                     )
 
                     FeedbackSection(
                         title: "Next attempt",
                         message: redoReview.nextAttempt
+                    )
+
+                    TrainingNoticeCard(
+                        systemImage: "questionmark.circle",
+                        message: "Your original feedback is saved in History.",
+                        isDark: false
                     )
                 } else {
                     TrainingNoticeCard(
@@ -716,15 +737,13 @@ private struct CompletedResultView: View {
                     )
                 }
 
-                OriginalFeedbackBlock(feedback: feedback)
-
                 CoachPrimaryButton(title: "Start next") {
                     Task {
                         await startNext()
                     }
                 }
 
-                CoachSecondaryButton(title: "Back home", showsBorder: true) {
+                CoachSecondaryButton(title: "Back home") {
                     onBackHome()
                 }
             }
@@ -736,18 +755,14 @@ private struct CompletedResultView: View {
         await onStartNext()
     }
 
-    private var feedback: FeedbackPayload {
-        session.feedback ?? .fixture
-    }
-
     private var redoReviewNoticeMessage: String {
         switch session.completionReason {
         case .redoReviewUnavailable:
-            return "Redo review was unavailable. Your original feedback stays below."
+            return "Redo review was unavailable. Your original feedback is saved in History."
         case .redoSkipped:
-            return "You skipped the redo. Your original feedback stays below."
+            return "You skipped the redo. Your original feedback is saved in History."
         case .redoReviewGenerated, nil:
-            return "Your original feedback stays below."
+            return "Your original feedback is saved in History."
         }
     }
 }
@@ -878,15 +893,19 @@ private struct RecordingControlCard: View {
                 )
             }
 
-            CoachPrimaryButton(
-                title: primaryTitle,
-                isLoading: isSubmitting,
-                isDisabled: primaryDisabled,
-                isDark: true,
-                action: onPrimary
-            )
+            HStack(spacing: 12) {
+                CoachPrimaryButton(
+                    title: primaryTitle,
+                    isLoading: isSubmitting,
+                    isDisabled: primaryDisabled,
+                    isDark: true,
+                    action: onPrimary
+                )
+                .layoutPriority(1)
 
-            CoachRecordingSecondaryButton(title: secondaryTitle, action: onSecondary)
+                CoachRecordingSecondaryButton(title: secondaryTitle, action: onSecondary)
+                    .frame(width: 116)
+            }
         }
         .padding(20)
         .background(CoachColor.darkPanel)
@@ -1049,42 +1068,6 @@ private struct FeedbackSection: View {
     }
 }
 
-private struct OriginalFeedbackBlock: View {
-    let feedback: FeedbackPayload
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: CoachSpace.lg) {
-            Text("Original feedback")
-                .font(.coachSectionTitle)
-                .foregroundStyle(CoachColor.text48)
-
-            FeedbackSection(
-                title: "Biggest gap",
-                message: feedback.biggestGap
-            )
-
-            FeedbackSection(
-                title: "Why it matters",
-                message: feedback.whyItMatters
-            )
-
-            FeedbackSection(
-                title: "Redo priority",
-                message: feedback.redoPriority
-            )
-
-            FeedbackOutlineSection(items: feedback.redoOutline)
-
-            FeedbackSection(
-                title: "Strongest signal",
-                message: feedback.strongestSignal
-            )
-
-            AssessmentSection(assessments: feedback.assessments)
-        }
-    }
-}
-
 private struct FeedbackOutlineSection: View {
     let items: [String]
 
@@ -1165,31 +1148,6 @@ private struct AssessmentRow: View {
         case .weak:
             return CoachColor.text
         }
-    }
-}
-
-private struct ResultStatusCard: View {
-    let title: String
-    let message: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.coachCardTitle)
-                .foregroundStyle(CoachColor.text)
-
-            Text(message)
-                .font(.coachBody)
-                .foregroundStyle(CoachColor.text80)
-                .lineSpacing(4)
-        }
-        .padding(16)
-        .background(CoachColor.surface)
-        .overlay {
-            RoundedRectangle(cornerRadius: CoachRadius.standard, style: .continuous)
-                .stroke(CoachColor.line, lineWidth: 1)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: CoachRadius.standard, style: .continuous))
     }
 }
 
