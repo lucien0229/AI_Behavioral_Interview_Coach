@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import re
-import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable
@@ -13,6 +11,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from backend.file_storage import InMemoryFileStorage
+from backend.state_store import SQLiteStateStore
 
 
 API_PREFIX = "/api/v1"
@@ -137,42 +136,8 @@ class BackendProviders:
     file_storage: Any = field(default_factory=InMemoryFileStorage)
 
 
-class SQLiteStateStore:
-    def __init__(self, database_path: str):
-        self.database_path = database_path
-        self._ensure_schema()
-
-    def load(self) -> dict[str, Any] | None:
-        with sqlite3.connect(self.database_path) as connection:
-            row = connection.execute("select value from state where key = ?", ("backend_state",)).fetchone()
-        if not row:
-            return None
-        return json.loads(row[0])
-
-    def save(self, snapshot: dict[str, Any]) -> None:
-        with sqlite3.connect(self.database_path) as connection:
-            connection.execute(
-                """
-                insert into state(key, value) values(?, ?)
-                on conflict(key) do update set value = excluded.value
-                """,
-                ("backend_state", json.dumps(snapshot, separators=(",", ":"))),
-            )
-
-    def _ensure_schema(self) -> None:
-        with sqlite3.connect(self.database_path) as connection:
-            connection.execute(
-                """
-                create table if not exists state(
-                    key text primary key,
-                    value text not null
-                )
-                """
-            )
-
-
 class BackendState:
-    def __init__(self, store: SQLiteStateStore | None = None) -> None:
+    def __init__(self, store: Any | None = None) -> None:
         self.store = store
         self.users_by_installation: dict[str, AppUser] = {}
         self.users_by_token: dict[str, AppUser] = {}
@@ -394,8 +359,14 @@ def deserialize_user(raw_user: dict[str, Any]) -> AppUser:
     return user
 
 
-def create_app(database_path: str | None = None, providers: BackendProviders | None = None) -> FastAPI:
-    state = BackendState(store=SQLiteStateStore(database_path) if database_path else None)
+def create_app(
+    database_path: str | None = None,
+    providers: BackendProviders | None = None,
+    state_store: Any | None = None,
+) -> FastAPI:
+    if state_store is None and database_path:
+        state_store = SQLiteStateStore(database_path)
+    state = BackendState(store=state_store)
     providers = providers or BackendProviders()
     app = FastAPI(title="AI Behavioral Interview Coach API", version="1.1.0-mvp")
 
@@ -1132,10 +1103,10 @@ def utc_now() -> str:
 
 
 def create_configured_app() -> FastAPI:
-    from backend.config import create_providers_from_environment
+    from backend.config import create_providers_from_environment, create_state_store_from_environment
 
     return create_app(
-        database_path=os.getenv("AIBIC_SQLITE_DATABASE_PATH"),
+        state_store=create_state_store_from_environment(),
         providers=create_providers_from_environment(),
     )
 
