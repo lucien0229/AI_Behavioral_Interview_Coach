@@ -742,11 +742,14 @@ async def mutate_session_with_audio(
         advance_session_on_read(user, session, providers)
         if session.status != expected_status:
             raise APIError("TRAINING_SESSION_NOT_READY", "The training session is not ready for this upload.", 409)
-        providers.audio_transcriber.transcribe(
+        transcription = providers.audio_transcriber.transcribe(
             audio_stage_for_status(next_status),
             raw_body,
             parse_duration_seconds(raw_body),
         )
+        if not transcript_is_usable(transcription):
+            return state.success(transcript_retry_payload(session, expected_status, transcription))
+
         audio_stage = audio_stage_for_status(next_status)
         audio_file_name = multipart_file_name(raw_body, "audio_file") or f"{audio_stage}.m4a"
         session.audio_storage_keys[audio_stage] = providers.file_storage.save_upload(
@@ -763,6 +766,39 @@ async def mutate_session_with_audio(
         return state.success(session_mutation_payload(session))
 
     return await state.idempotent(request, user.app_user_id, action)
+
+
+def transcript_is_usable(transcription: Any) -> bool:
+    return provider_field(transcription, "transcript_quality_status", "usable") == "usable"
+
+
+def transcript_retry_payload(
+    session: TrainingSessionRecord,
+    retry_status: str,
+    transcription: Any,
+) -> dict[str, Any]:
+    quality_status = str(provider_field(transcription, "transcript_quality_status", "failed"))
+    transcript_status = str(
+        provider_field(
+            transcription,
+            "transcript_status",
+            "failed" if quality_status == "failed" else "completed",
+        )
+    )
+    return {
+        "session_id": session.session_id,
+        "status": retry_status,
+        "transcript_status": transcript_status,
+        "transcript_quality_status": quality_status,
+        "error_code": transcript_error_code(quality_status),
+        "detected_language": provider_field(transcription, "detected_language", None),
+    }
+
+
+def transcript_error_code(quality_status: str) -> str:
+    if quality_status == "failed":
+        return "TRANSCRIPTION_FAILED"
+    return "TRANSCRIPT_QUALITY_TOO_LOW"
 
 
 def json_payload(raw_body: bytes) -> dict[str, Any]:
