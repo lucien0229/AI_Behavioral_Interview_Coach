@@ -4,6 +4,7 @@ import os
 
 from backend.app import PRODUCT_ID, SESSION_PACK_CREDITS, BackendProviders
 from backend.apple_verification import AppleAppStorePurchaseVerifier
+from backend.audio_transcription import DEFAULT_OPENAI_TRANSCRIPTION_MODEL, OpenAIAudioTranscriber
 from backend.file_storage import LocalFileStorage, S3FileStorage
 from backend.state_store import SQLAlchemyStateStore, SQLiteStateStore
 
@@ -26,6 +27,16 @@ def create_providers_from_environment() -> BackendProviders:
             ),
             key_prefix=os.getenv("AIBIC_S3_KEY_PREFIX", ""),
         )
+
+    asr_provider = os.getenv("AIBIC_ASR_PROVIDER", "").lower()
+    if asr_provider == "openai":
+        providers.audio_transcriber = OpenAIAudioTranscriber(
+            api_key=required_env("AIBIC_OPENAI_API_KEY"),
+            model=os.getenv("AIBIC_OPENAI_TRANSCRIPTION_MODEL", DEFAULT_OPENAI_TRANSCRIPTION_MODEL),
+            base_url=os.getenv("AIBIC_OPENAI_BASE_URL", "https://api.openai.com/v1"),
+        )
+    elif asr_provider:
+        raise RuntimeError("AIBIC_ASR_PROVIDER must be 'openai' when set.")
 
     root_certificate_paths = split_paths(os.getenv("AIBIC_APPLE_ROOT_CERT_PATHS", ""))
     bundle_id = os.getenv("AIBIC_IOS_BUNDLE_ID")
@@ -63,6 +74,13 @@ def optional_int(raw_value: str | None) -> int | None:
     if not raw_value:
         return None
     return int(raw_value)
+
+
+def required_env(name: str) -> str:
+    value = os.getenv(name)
+    if not value:
+        raise RuntimeError(f"{name} is required.")
+    return value
 
 
 def create_s3_client(**kwargs):
