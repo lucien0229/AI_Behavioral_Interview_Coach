@@ -66,6 +66,23 @@ def test_configured_app_uses_environment_provider_bundle(tmp_path, monkeypatch):
     assert verified["usage_balance"]["paid_session_credits_remaining"] == 5
 
 
+def test_provider_config_builds_local_file_storage_from_environment(tmp_path, monkeypatch):
+    storage_root = tmp_path / "objects"
+    monkeypatch.setenv("AIBIC_LOCAL_FILE_STORAGE_ROOT", str(storage_root))
+
+    providers = create_providers_from_environment()
+    key = providers.file_storage.save_upload(
+        kind="resumes",
+        owner_id="usr_1",
+        object_id="res_1",
+        file_name="resume.pdf",
+        data=b"stored",
+    )
+
+    assert providers.file_storage.read(key) == b"stored"
+    assert (storage_root / key).read_bytes() == b"stored"
+
+
 class RecordingAppleVerifierFactory:
     verifier = object()
     calls = []

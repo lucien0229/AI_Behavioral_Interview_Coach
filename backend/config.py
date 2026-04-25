@@ -4,10 +4,15 @@ import os
 
 from backend.app import PRODUCT_ID, SESSION_PACK_CREDITS, BackendProviders
 from backend.apple_verification import AppleAppStorePurchaseVerifier
+from backend.file_storage import LocalFileStorage
 
 
 def create_providers_from_environment() -> BackendProviders:
     providers = BackendProviders()
+    local_file_storage_root = os.getenv("AIBIC_LOCAL_FILE_STORAGE_ROOT")
+    if local_file_storage_root:
+        providers.file_storage = LocalFileStorage(local_file_storage_root)
+
     root_certificate_paths = split_paths(os.getenv("AIBIC_APPLE_ROOT_CERT_PATHS", ""))
     bundle_id = os.getenv("AIBIC_IOS_BUNDLE_ID")
     environment = os.getenv("AIBIC_APPLE_ENVIRONMENT")
