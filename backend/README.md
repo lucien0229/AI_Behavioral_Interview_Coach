@@ -66,6 +66,14 @@ export AIBIC_APPLE_APP_ID="1234567890"   # required by Apple for production
 python3 -m pytest backend/tests/test_api_contract.py -q
 ```
 
+For a live backend smoke test against a local or deployed API:
+
+```bash
+export AIBIC_SMOKE_API_BASE_URL="http://127.0.0.1:8000/api/v1"
+export AIBIC_SMOKE_RESUME_PATH="/path/to/resume.pdf"
+python3 -m backend.smoke
+```
+
 ## Current scope
 
 - In-memory anonymous users, resumes, sessions, idempotency records, and purchase state by default.
@@ -78,8 +86,9 @@ python3 -m pytest backend/tests/test_api_contract.py -q
 - OpenAI audio transcription provider, explicitly enabled with `AIBIC_ASR_PROVIDER=openai`.
 - OpenAI training content generation provider, explicitly enabled with `AIBIC_AI_PROVIDER=openai`.
 - Apple App Store signed transaction verification provider using Apple's App Store Server Python library.
+- Live smoke-test runner for bootstrap, resume upload, training creation, and first training-session read.
 - iOS-compatible envelope responses: `request_id`, `data`, `error`.
 - Covered flows: bootstrap, home, resume upload/status/delete, training session lifecycle, billing stubs, and delete-all-data.
 - Default mock AI, ASR, resume parsing, purchase verification, and file storage providers; resume parsing, AI generation, ASR, and Apple purchase verification can be enabled through environment configuration.
 
-The next backend step is running an end-to-end backend smoke test with production provider environment variables and real credentials.
+The next backend step is running the smoke test with production provider environment variables and real credentials.
