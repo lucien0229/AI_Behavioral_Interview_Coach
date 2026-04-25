@@ -4,7 +4,7 @@ import os
 
 from backend.app import PRODUCT_ID, SESSION_PACK_CREDITS, BackendProviders
 from backend.apple_verification import AppleAppStorePurchaseVerifier
-from backend.file_storage import LocalFileStorage
+from backend.file_storage import LocalFileStorage, S3FileStorage
 
 
 def create_providers_from_environment() -> BackendProviders:
@@ -12,6 +12,19 @@ def create_providers_from_environment() -> BackendProviders:
     local_file_storage_root = os.getenv("AIBIC_LOCAL_FILE_STORAGE_ROOT")
     if local_file_storage_root:
         providers.file_storage = LocalFileStorage(local_file_storage_root)
+
+    s3_bucket = os.getenv("AIBIC_S3_BUCKET")
+    if s3_bucket:
+        providers.file_storage = S3FileStorage(
+            bucket_name=s3_bucket,
+            s3_client=create_s3_client(
+                endpoint_url=os.getenv("AIBIC_S3_ENDPOINT_URL"),
+                region_name=os.getenv("AIBIC_S3_REGION"),
+                aws_access_key_id=os.getenv("AIBIC_S3_ACCESS_KEY_ID"),
+                aws_secret_access_key=os.getenv("AIBIC_S3_SECRET_ACCESS_KEY"),
+            ),
+            key_prefix=os.getenv("AIBIC_S3_KEY_PREFIX", ""),
+        )
 
     root_certificate_paths = split_paths(os.getenv("AIBIC_APPLE_ROOT_CERT_PATHS", ""))
     bundle_id = os.getenv("AIBIC_IOS_BUNDLE_ID")
@@ -37,3 +50,13 @@ def optional_int(raw_value: str | None) -> int | None:
     if not raw_value:
         return None
     return int(raw_value)
+
+
+def create_s3_client(**kwargs):
+    try:
+        import boto3
+    except ImportError as error:
+        raise RuntimeError("Install boto3 to enable S3-compatible file storage.") from error
+
+    filtered_kwargs = {key: value for key, value in kwargs.items() if value}
+    return boto3.client("s3", **filtered_kwargs)

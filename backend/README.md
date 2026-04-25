@@ -36,10 +36,16 @@ app = create_app(
 )
 ```
 
-For the default ASGI entrypoint (`uvicorn backend.app:app`), local file storage and Apple purchase verification are enabled when these environment variables are present:
+For the default ASGI entrypoint (`uvicorn backend.app:app`), local/S3-compatible file storage and Apple purchase verification are enabled when these environment variables are present:
 
 ```bash
 export AIBIC_LOCAL_FILE_STORAGE_ROOT="/var/lib/aibic/objects"
+export AIBIC_S3_BUCKET="aibic-objects"
+export AIBIC_S3_KEY_PREFIX="prod"
+export AIBIC_S3_ENDPOINT_URL="https://s3.example.com"
+export AIBIC_S3_REGION="us-west-2"
+export AIBIC_S3_ACCESS_KEY_ID="..."
+export AIBIC_S3_SECRET_ACCESS_KEY="..."
 export AIBIC_APPLE_ROOT_CERT_PATHS="/path/to/AppleRootCA-G3.cer"
 export AIBIC_IOS_BUNDLE_ID="com.example.app"
 export AIBIC_APPLE_ENVIRONMENT="sandbox" # or production
@@ -58,9 +64,10 @@ python3 -m pytest backend/tests/test_api_contract.py -q
 - Optional SQLite state snapshot persistence for local restart testing and backend provider wiring.
 - Injectable provider bundle for resume parsing, training content generation, audio transcription, and Apple purchase verification.
 - Local file storage provider for resume and audio uploads, with storage keys persisted in backend state and files deleted during user data deletion.
+- S3-compatible file storage provider using `boto3`, configured through `AIBIC_S3_*` environment variables.
 - Apple App Store signed transaction verification provider using Apple's App Store Server Python library.
 - iOS-compatible envelope responses: `request_id`, `data`, `error`.
 - Covered flows: bootstrap, home, resume upload/status/delete, training session lifecycle, billing stubs, and delete-all-data.
 - Default mock AI, ASR, resume parsing, purchase verification, and file storage providers; Apple purchase verification can be enabled through environment configuration.
 
-The next backend step is replacing the SQLite snapshot and remaining default mock providers with production dependencies: Postgres, S3-compatible object storage, ASR, and AI generation.
+The next backend step is replacing the SQLite snapshot and remaining default mock providers with production dependencies: Postgres, ASR, and AI generation.

@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 
 from backend.app import BackendProviders, create_app
-from backend.file_storage import LocalFileStorage
+from backend.file_storage import LocalFileStorage, S3FileStorage
 from backend.tests.test_api_contract import bootstrap, data
 
 
@@ -121,3 +121,86 @@ def test_delete_all_data_removes_stored_resume_and_audio_files(tmp_path):
 
     assert not storage.exists(resume["storage_key"])
     assert not storage.exists(session["audio_storage_keys"]["first_answer"])
+
+
+def test_s3_file_storage_uses_s3_compatible_client_operations():
+    s3_client = RecordingS3Client()
+    storage = S3FileStorage(
+        bucket_name="aibic-objects",
+        s3_client=s3_client,
+        key_prefix="prod",
+    )
+
+    key = storage.save_upload(
+        kind="resumes",
+        owner_id="usr_1",
+        object_id="res_1",
+        file_name="resume.pdf",
+        data=b"stored",
+        content_type="application/pdf",
+    )
+
+    assert key == "prod/resumes/usr_1/res_1/resume.pdf"
+    assert storage.read(key) == b"stored"
+    assert storage.exists(key) is True
+    storage.delete(key)
+    assert storage.exists(key) is False
+    assert s3_client.put_calls == [
+        {
+            "Bucket": "aibic-objects",
+            "Key": "prod/resumes/usr_1/res_1/resume.pdf",
+            "Body": b"stored",
+            "ContentType": "application/pdf",
+        }
+    ]
+    assert s3_client.deleted_keys == ["prod/resumes/usr_1/res_1/resume.pdf"]
+
+
+def test_s3_file_storage_exists_does_not_hide_unexpected_client_errors():
+    storage = S3FileStorage(
+        bucket_name="aibic-objects",
+        s3_client=FailingS3Client(),
+    )
+
+    try:
+        storage.exists("resumes/usr_1/res_1/resume.pdf")
+    except RuntimeError as error:
+        assert str(error) == "credentials unavailable"
+    else:
+        raise AssertionError("Expected unexpected S3 error to be raised")
+
+
+class RecordingS3Client:
+    def __init__(self):
+        self.objects = {}
+        self.put_calls = []
+        self.deleted_keys = []
+
+    def put_object(self, **kwargs):
+        self.put_calls.append(kwargs)
+        self.objects[(kwargs["Bucket"], kwargs["Key"])] = kwargs["Body"]
+
+    def get_object(self, Bucket, Key):
+        return {"Body": RecordingBody(self.objects[(Bucket, Key)])}
+
+    def head_object(self, Bucket, Key):
+        if (Bucket, Key) not in self.objects:
+            raise KeyError(Key)
+        return {}
+
+    def delete_object(self, Bucket, Key):
+        self.deleted_keys.append(Key)
+        self.objects.pop((Bucket, Key), None)
+
+
+class RecordingBody:
+    def __init__(self, data):
+        self.data = data
+
+    def read(self):
+        return self.data
+
+
+class FailingS3Client:
+    def head_object(self, Bucket, Key):
+        raise RuntimeError("credentials unavailable")
