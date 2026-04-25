@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import os
 
-from backend.app import PRODUCT_ID, SESSION_PACK_CREDITS, BackendProviders
-from backend.apple_verification import AppleAppStorePurchaseVerifier
+from backend.ai_generation import DEFAULT_OPENAI_GENERATION_MODEL, OpenAITrainingContentProvider
 from backend.audio_transcription import DEFAULT_OPENAI_TRANSCRIPTION_MODEL, OpenAIAudioTranscriber
 from backend.file_storage import LocalFileStorage, S3FileStorage
 from backend.state_store import SQLAlchemyStateStore, SQLiteStateStore
 
 
-def create_providers_from_environment() -> BackendProviders:
+def create_providers_from_environment():
+    from backend.app import PRODUCT_ID, SESSION_PACK_CREDITS, BackendProviders
+
     providers = BackendProviders()
     local_file_storage_root = os.getenv("AIBIC_LOCAL_FILE_STORAGE_ROOT")
     if local_file_storage_root:
@@ -38,11 +39,23 @@ def create_providers_from_environment() -> BackendProviders:
     elif asr_provider:
         raise RuntimeError("AIBIC_ASR_PROVIDER must be 'openai' when set.")
 
+    ai_provider = os.getenv("AIBIC_AI_PROVIDER", "").lower()
+    if ai_provider == "openai":
+        providers.training_content = OpenAITrainingContentProvider(
+            api_key=required_env("AIBIC_OPENAI_API_KEY"),
+            model=os.getenv("AIBIC_OPENAI_GENERATION_MODEL", DEFAULT_OPENAI_GENERATION_MODEL),
+            base_url=os.getenv("AIBIC_OPENAI_BASE_URL", "https://api.openai.com/v1"),
+        )
+    elif ai_provider:
+        raise RuntimeError("AIBIC_AI_PROVIDER must be 'openai' when set.")
+
     root_certificate_paths = split_paths(os.getenv("AIBIC_APPLE_ROOT_CERT_PATHS", ""))
     bundle_id = os.getenv("AIBIC_IOS_BUNDLE_ID")
     environment = os.getenv("AIBIC_APPLE_ENVIRONMENT")
 
     if root_certificate_paths and bundle_id and environment:
+        from backend.apple_verification import AppleAppStorePurchaseVerifier
+
         providers.purchase_verifier = AppleAppStorePurchaseVerifier.from_certificate_files(
             root_certificate_paths=root_certificate_paths,
             bundle_id=bundle_id,

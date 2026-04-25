@@ -41,8 +41,10 @@ For the default ASGI entrypoint (`uvicorn backend.app:app`), SQLAlchemy-backed s
 ```bash
 export AIBIC_DATABASE_URL="postgresql+psycopg://user:password@postgres.example.com/aibic"
 export AIBIC_ASR_PROVIDER="openai"
+export AIBIC_AI_PROVIDER="openai"
 export AIBIC_OPENAI_API_KEY="..."
 export AIBIC_OPENAI_TRANSCRIPTION_MODEL="gpt-4o-mini-transcribe"
+export AIBIC_OPENAI_GENERATION_MODEL="gpt-5"
 export AIBIC_LOCAL_FILE_STORAGE_ROOT="/var/lib/aibic/objects"
 export AIBIC_S3_BUCKET="aibic-objects"
 export AIBIC_S3_KEY_PREFIX="prod"
@@ -71,9 +73,10 @@ python3 -m pytest backend/tests/test_api_contract.py -q
 - Local file storage provider for resume and audio uploads, with storage keys persisted in backend state and files deleted during user data deletion.
 - S3-compatible file storage provider using `boto3`, configured through `AIBIC_S3_*` environment variables.
 - OpenAI audio transcription provider, explicitly enabled with `AIBIC_ASR_PROVIDER=openai`.
+- OpenAI training content generation provider, explicitly enabled with `AIBIC_AI_PROVIDER=openai`.
 - Apple App Store signed transaction verification provider using Apple's App Store Server Python library.
 - iOS-compatible envelope responses: `request_id`, `data`, `error`.
 - Covered flows: bootstrap, home, resume upload/status/delete, training session lifecycle, billing stubs, and delete-all-data.
-- Default mock AI, ASR, resume parsing, purchase verification, and file storage providers; ASR and Apple purchase verification can be enabled through environment configuration.
+- Default mock AI, ASR, resume parsing, purchase verification, and file storage providers; AI generation, ASR, and Apple purchase verification can be enabled through environment configuration.
 
-The next backend step is replacing the remaining default mock AI generation provider with a production dependency.
+The next backend step is replacing the remaining default mock resume parsing provider with a production dependency.
