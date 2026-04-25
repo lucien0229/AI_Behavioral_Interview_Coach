@@ -5,6 +5,7 @@ import os
 from backend.app import PRODUCT_ID, SESSION_PACK_CREDITS, BackendProviders
 from backend.apple_verification import AppleAppStorePurchaseVerifier
 from backend.file_storage import LocalFileStorage, S3FileStorage
+from backend.state_store import SQLAlchemyStateStore, SQLiteStateStore
 
 
 def create_providers_from_environment() -> BackendProviders:
@@ -40,6 +41,18 @@ def create_providers_from_environment() -> BackendProviders:
         )
 
     return providers
+
+
+def create_state_store_from_environment():
+    database_url = os.getenv("AIBIC_DATABASE_URL")
+    if database_url:
+        return SQLAlchemyStateStore(database_url)
+
+    sqlite_database_path = os.getenv("AIBIC_SQLITE_DATABASE_PATH")
+    if sqlite_database_path:
+        return SQLiteStateStore(sqlite_database_path)
+
+    return None
 
 
 def split_paths(raw_paths: str) -> list[str]:

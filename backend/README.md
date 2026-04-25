@@ -36,9 +36,10 @@ app = create_app(
 )
 ```
 
-For the default ASGI entrypoint (`uvicorn backend.app:app`), local/S3-compatible file storage and Apple purchase verification are enabled when these environment variables are present:
+For the default ASGI entrypoint (`uvicorn backend.app:app`), SQLAlchemy-backed state persistence, local/S3-compatible file storage, and Apple purchase verification are enabled when these environment variables are present:
 
 ```bash
+export AIBIC_DATABASE_URL="postgresql+psycopg://user:password@postgres.example.com/aibic"
 export AIBIC_LOCAL_FILE_STORAGE_ROOT="/var/lib/aibic/objects"
 export AIBIC_S3_BUCKET="aibic-objects"
 export AIBIC_S3_KEY_PREFIX="prod"
@@ -62,6 +63,7 @@ python3 -m pytest backend/tests/test_api_contract.py -q
 
 - In-memory anonymous users, resumes, sessions, idempotency records, and purchase state by default.
 - Optional SQLite state snapshot persistence for local restart testing and backend provider wiring.
+- Optional SQLAlchemy-backed state snapshot persistence through `AIBIC_DATABASE_URL`, including Postgres with `psycopg`.
 - Injectable provider bundle for resume parsing, training content generation, audio transcription, and Apple purchase verification.
 - Local file storage provider for resume and audio uploads, with storage keys persisted in backend state and files deleted during user data deletion.
 - S3-compatible file storage provider using `boto3`, configured through `AIBIC_S3_*` environment variables.
@@ -70,4 +72,4 @@ python3 -m pytest backend/tests/test_api_contract.py -q
 - Covered flows: bootstrap, home, resume upload/status/delete, training session lifecycle, billing stubs, and delete-all-data.
 - Default mock AI, ASR, resume parsing, purchase verification, and file storage providers; Apple purchase verification can be enabled through environment configuration.
 
-The next backend step is replacing the SQLite snapshot and remaining default mock providers with production dependencies: Postgres, ASR, and AI generation.
+The next backend step is replacing the remaining default mock providers with production dependencies: ASR and AI generation.
