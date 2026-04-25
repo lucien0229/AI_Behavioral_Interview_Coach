@@ -5,6 +5,7 @@ import os
 from backend.ai_generation import DEFAULT_OPENAI_GENERATION_MODEL, OpenAITrainingContentProvider
 from backend.audio_transcription import DEFAULT_OPENAI_TRANSCRIPTION_MODEL, OpenAIAudioTranscriber
 from backend.file_storage import LocalFileStorage, S3FileStorage
+from backend.resume_parsing import DEFAULT_OPENAI_RESUME_MODEL, OpenAIResumeParser
 from backend.state_store import SQLAlchemyStateStore, SQLiteStateStore
 
 
@@ -28,6 +29,16 @@ def create_providers_from_environment():
             ),
             key_prefix=os.getenv("AIBIC_S3_KEY_PREFIX", ""),
         )
+
+    resume_parser_provider = os.getenv("AIBIC_RESUME_PARSER_PROVIDER", "").lower()
+    if resume_parser_provider == "openai":
+        providers.resume_parser = OpenAIResumeParser(
+            api_key=required_env("AIBIC_OPENAI_API_KEY"),
+            model=os.getenv("AIBIC_OPENAI_RESUME_MODEL", DEFAULT_OPENAI_RESUME_MODEL),
+            base_url=os.getenv("AIBIC_OPENAI_BASE_URL", "https://api.openai.com/v1"),
+        )
+    elif resume_parser_provider:
+        raise RuntimeError("AIBIC_RESUME_PARSER_PROVIDER must be 'openai' when set.")
 
     asr_provider = os.getenv("AIBIC_ASR_PROVIDER", "").lower()
     if asr_provider == "openai":

@@ -489,6 +489,8 @@ def create_app(
             resume = active_resume(user)
             if not resume:
                 raise APIError("ACTIVE_RESUME_REQUIRED", "A ready resume is required before training.", 409)
+            if resume.profile_quality_status == "unusable":
+                raise APIError("RESUME_PROFILE_UNUSABLE", "The active resume does not contain enough trainable evidence.", 409)
             if resume.status != "ready":
                 raise APIError("RESUME_NOT_READY", "The active resume is not ready for training.", 409)
             if current_active_session(user):
